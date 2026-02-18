@@ -263,7 +263,7 @@
     <div class="action-panel">
       <h3>KOPIS Sync (공연/전시 자동 수집)</h3>
       <p style="font-size:13px;color:var(--text-sub);margin-bottom:12px">
-        KOPIS API에서 현재~30일 내 공연/전시를 자동 수집합니다. (대중음악, 대중무용, 클래식, 콘서트 키워드)
+        KOPIS API에서 현재~30일 내 공연/축제를 자동 수집합니다. (공연DB: 대중음악, 대중무용 / 축제DB: 대중음악, 대중무용)
       </p>
       <button class="btn btn-primary" id="btnSyncKopis" onclick="syncKopis()">
         Sync Now
@@ -271,21 +271,38 @@
     </div>
 
     <div class="action-panel">
-      <h3>Instagram / Manual Curation (수동 큐레이션)</h3>
-      <div class="action-row">
-        <div class="form-group">
+      <h3>Manual Curation (수동 큐레이션)</h3>
+      <div class="action-row" style="flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:200px">
+          <label>Images (최대 5장)</label>
+          <input type="file" id="curateImages" accept="image/jpeg,image/png,image/webp" multiple
+            style="padding:8px;cursor:pointer" />
+          <div id="imagePreview" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"></div>
+        </div>
+        <div class="form-group" style="flex:1;min-width:200px">
+          <label>Caption Text (내용 입력) *</label>
+          <textarea id="curateCaption" rows="3" placeholder="장소명, 특징, 날짜, 가격 등 자유롭게 입력...&#10;예: 여의도 벚꽃축제 4/5~4/13, 무료, 한강 야경 포토스팟"></textarea>
+        </div>
+        <div class="form-group" style="flex:0.4;min-width:130px">
+          <label>Category (optional)</label>
+          <select id="curateCategory">
+            <option value="">GPT 자동 분류</option>
+            <option value="festival">festival</option>
+            <option value="performance">performance</option>
+            <option value="restaurant">restaurant</option>
+            <option value="activity">activity</option>
+            <option value="spot">spot</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0.5;min-width:150px">
           <label>Instagram URL (optional)</label>
           <input type="url" id="curateUrl" placeholder="https://www.instagram.com/p/..." />
         </div>
-        <div class="form-group">
-          <label>Caption Text (직접 입력)</label>
-          <input type="text" id="curateCaption" placeholder="장소명, 특징 등..." />
-        </div>
-        <div class="form-group" style="flex:0.6">
+        <div class="form-group" style="flex:0.5;min-width:150px">
           <label>Notes (운영자 메모)</label>
           <input type="text" id="curateNotes" placeholder="추가 메모" />
         </div>
-        <button class="btn btn-primary" style="height:40px" onclick="curatePost()">Curate</button>
+        <button class="btn btn-primary" style="height:40px;align-self:flex-end" onclick="curatePost()">Curate</button>
       </div>
     </div>
 
@@ -335,6 +352,7 @@
       <label>Category</label>
       <select id="editCategory">
         <option value="performance">performance</option>
+        <option value="festival">festival</option>
         <option value="restaurant">restaurant</option>
         <option value="activity">activity</option>
         <option value="spot">spot</option>
@@ -752,24 +770,75 @@ async function syncKopis() {
   }
 }
 
-// ─── Instagram Curation ───
+// ─── Image Preview ───
+document.getElementById('curateImages').addEventListener('change', function() {
+  const preview = document.getElementById('imagePreview');
+  preview.innerHTML = '';
+  const files = Array.from(this.files).slice(0, 5);
+  files.forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden';
+      wrap.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover"/>
+        <span style="position:absolute;top:2px;right:4px;color:#fff;font-size:10px;text-shadow:0 0 3px #000">${i+1}</span>`;
+      preview.appendChild(wrap);
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+// ─── Upload images to Supabase Storage ───
+async function uploadFeedImages(files) {
+  const urls = [];
+  for (const file of files) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `curated/${fileName}`;
+
+    const { data, error } = await sb.storage
+      .from('feed-images')
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (error) {
+      console.error('Upload error:', error);
+      throw new Error(`Image upload failed: ${error.message}`);
+    }
+
+    const { data: urlData } = sb.storage.from('feed-images').getPublicUrl(path);
+    urls.push(urlData.publicUrl);
+  }
+  return urls;
+}
+
+// ─── Manual Curation ───
 async function curatePost() {
   const url = document.getElementById('curateUrl').value.trim();
   const caption = document.getElementById('curateCaption').value.trim();
   const notes = document.getElementById('curateNotes').value.trim();
+  const category = document.getElementById('curateCategory').value;
+  const imageInput = document.getElementById('curateImages');
+  const imageFiles = Array.from(imageInput.files).slice(0, 5);
 
-  if (!url && !caption) {
-    toast('Instagram URL or caption text is required', 'error');
+  if (!caption) {
+    toast('Caption text is required', 'error');
     return;
   }
 
-  showLoading('GPT + Unsplash 처리 중...');
+  showLoading(imageFiles.length > 0 ? '이미지 업로드 + GPT 처리 중...' : 'GPT + Unsplash 처리 중...');
   try {
+    // Upload images first if provided
+    let imageUrls = [];
+    if (imageFiles.length > 0) {
+      imageUrls = await uploadFeedImages(imageFiles);
+    }
+
     const headers = await getAuthHeaders();
-    const body = {};
+    const body = { caption_text: caption };
     if (url) body.instagram_url = url;
-    if (caption) body.caption_text = caption;
     if (notes) body.manual_notes = notes;
+    if (category) body.category = category;
+    if (imageUrls.length > 0) body.image_urls = imageUrls;
 
     const res = await fetch(`${EDGE_BASE}/feed-curate-instagram`, {
       method: 'POST',
@@ -777,12 +846,15 @@ async function curatePost() {
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Curation failed');
+    if (!res.ok) throw new Error(data.detail ? `${data.error}: ${data.detail}` : data.error || 'Curation failed');
 
     toast(`Draft created: ${data.post?.title || 'New post'}`, 'success');
     document.getElementById('curateUrl').value = '';
     document.getElementById('curateCaption').value = '';
     document.getElementById('curateNotes').value = '';
+    document.getElementById('curateCategory').value = '';
+    imageInput.value = '';
+    document.getElementById('imagePreview').innerHTML = '';
 
     // Switch to draft tab to see the new post
     const draftTab = document.querySelector('.tab[data-status="draft"]');

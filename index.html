@@ -841,6 +841,7 @@ async function cleanExpiredEvents() {
 
     toast(`${count}개 지난 이벤트 삭제 완료`, 'success');
     loadPosts();
+    checkExpiredCount();
   } catch (e) {
     toast(e.message, 'error');
   } finally {

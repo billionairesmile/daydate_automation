@@ -265,9 +265,15 @@
       <p style="font-size:13px;color:var(--text-sub);margin-bottom:12px">
         KOPIS API에서 현재~30일 내 공연/축제를 자동 수집합니다. (공연DB: 대중음악, 대중무용 / 축제DB: 대중음악, 대중무용)
       </p>
-      <button class="btn btn-primary" id="btnSyncKopis" onclick="syncKopis()">
-        Sync Now
-      </button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" id="btnSyncKopis" onclick="syncKopis()">
+          Sync Now
+        </button>
+        <button class="btn btn-orange" id="btnCleanExpired" onclick="cleanExpiredEvents()">
+          Clean Expired
+        </button>
+        <span id="expiredCount" style="font-size:12px;color:var(--text-sub)"></span>
+      </div>
     </div>
 
     <div class="action-panel">
@@ -292,6 +298,7 @@
             <option value="restaurant">restaurant</option>
             <option value="activity">activity</option>
             <option value="spot">spot</option>
+            <option value="pet">pet</option>
           </select>
         </div>
         <div class="form-group" style="flex:0.5;min-width:150px">
@@ -356,6 +363,7 @@
         <option value="restaurant">restaurant</option>
         <option value="activity">activity</option>
         <option value="spot">spot</option>
+        <option value="pet">pet</option>
       </select>
     </div>
     <div class="form-group">
@@ -412,9 +420,18 @@ let posts = [];
 let selectedIds = new Set();
 
 // ─── Auth ───
+async function isAdmin(email) {
+  const { data } = await sb.from('admin_users').select('id').eq('email', email).maybeSingle();
+  return !!data;
+}
+
 async function checkSession() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
+    if (!(await isAdmin(session.user.email))) {
+      await sb.auth.signOut();
+      return;
+    }
     showApp(session.user);
   }
 }
@@ -437,6 +454,14 @@ async function handleLogin() {
     errEl.style.display = 'block';
     return;
   }
+
+  if (!(await isAdmin(email))) {
+    await sb.auth.signOut();
+    errEl.textContent = 'Access denied';
+    errEl.style.display = 'block';
+    return;
+  }
+
   showApp(data.user);
 }
 
@@ -451,6 +476,7 @@ function showApp(user) {
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('userEmail').textContent = user.email;
   loadPosts();
+  checkExpiredCount();
 }
 
 // ─── API helpers ───
@@ -671,7 +697,7 @@ function viewDetail(id) {
     ${attrs.length ? `
       <div style="margin-top:16px">
         <strong style="font-size:13px">Image Attributions:</strong>
-        ${attrs.map(a => `<div style="font-size:12px;color:var(--text-sub);margin-top:4px">Photo by <a href="${a.photographerUrl}" target="_blank" style="color:var(--accent)">${esc(a.photographerName)}</a> on <a href="${a.photoUrl}" target="_blank" style="color:var(--accent)">Unsplash</a></div>`).join('')}
+        ${attrs.map(a => `<div style="font-size:12px;color:var(--text-sub);margin-top:4px">Photo by <a href="${a.photographerUrl}" target="_blank" style="color:var(--accent)">${esc(a.photographerName)}</a></div>`).join('')}
       </div>` : ''}
   `;
   document.getElementById('detailModal').classList.add('show');
@@ -754,8 +780,19 @@ async function syncKopis() {
       body: JSON.stringify({}),
     });
     const data = await res.json();
+    console.log('[KOPIS Sync Response]', JSON.stringify(data, null, 2));
     if (!res.ok) throw new Error(data.error || 'Sync failed');
 
+    let msg = `Sync: ${data.inserted || 0} inserted, ${data.skippedDuplicates || 0} dupes, ${data.errors || 0} errors (total found: ${data.totalFound || 0})`;
+    if (data.debug) {
+      const debugSummary = data.debug.map(d => `${d.config}: ${d.itemCount || d.dbCount || 0} items, xml=${d.xmlLength || 0}bytes, status=${d.status}\nXML: ${(d.xmlPreview || '').substring(0, 200)}`).join('\n\n');
+      msg += '\n\nDebug:\n' + debugSummary;
+      console.log('[KOPIS Debug]', debugSummary);
+    }
+    if (data.errorDetails && data.errorDetails.length > 0) {
+      msg += '\n\nErrors: ' + data.errorDetails.join(', ');
+    }
+    alert(msg);
     toast(
       `Sync complete: ${data.inserted || 0} inserted, ${data.skippedDuplicates || 0} duplicates, ${data.errors || 0} errors`,
       data.inserted > 0 ? 'success' : 'info'
@@ -768,6 +805,67 @@ async function syncKopis() {
     btn.innerHTML = 'Sync Now';
     hideLoading();
   }
+}
+
+// ─── Clean Expired Events ───
+async function cleanExpiredEvents() {
+  const btn = document.getElementById('btnCleanExpired');
+  btn.disabled = true;
+  btn.textContent = 'Cleaning...';
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Count first
+    const { count, error: countErr } = await sb
+      .from('feed_posts')
+      .select('*', { count: 'exact', head: true })
+      .lt('event_end_date', today);
+
+    if (countErr) throw countErr;
+
+    if (!count || count === 0) {
+      toast('No expired events found', 'info');
+      return;
+    }
+
+    if (!confirm(`${count}개의 지난 이벤트를 삭제하시겠습니까?`)) return;
+
+    // Delete expired events
+    const { error: delErr } = await sb
+      .from('feed_posts')
+      .delete()
+      .lt('event_end_date', today);
+
+    if (delErr) throw delErr;
+
+    toast(`${count}개 지난 이벤트 삭제 완료`, 'success');
+    loadPosts();
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Clean Expired';
+  }
+}
+
+// Check expired count on load
+async function checkExpiredCount() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { count } = await sb
+      .from('feed_posts')
+      .select('*', { count: 'exact', head: true })
+      .lt('event_end_date', today);
+
+    const el = document.getElementById('expiredCount');
+    if (count > 0) {
+      el.textContent = `(${count}개 만료됨)`;
+      el.style.color = '#EF4444';
+    } else {
+      el.textContent = '';
+    }
+  } catch {}
 }
 
 // ─── Image Preview ───
@@ -825,7 +923,7 @@ async function curatePost() {
     return;
   }
 
-  showLoading(imageFiles.length > 0 ? '이미지 업로드 + GPT 처리 중...' : 'GPT + Unsplash 처리 중...');
+  showLoading(imageFiles.length > 0 ? '이미지 업로드 + GPT 처리 중...' : 'GPT 처리 중...');
   try {
     // Upload images first if provided
     let imageUrls = [];

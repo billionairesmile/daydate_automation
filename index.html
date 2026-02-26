@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daydate Feed Admin</title>
+  <title>Daydate Admin Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     :root {
@@ -18,6 +18,7 @@
       --green: #34d399;
       --red: #f87171;
       --orange: #fbbf24;
+      --blue: #60a5fa;
       --radius: 10px;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -81,7 +82,25 @@
 
     .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
-    /* ─── Tabs ─── */
+    /* ─── Main Navigation ─── */
+    .main-nav {
+      display: flex; gap: 0; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px; position: sticky; top: 54px; z-index: 99;
+    }
+    .main-nav-item {
+      padding: 14px 24px; cursor: pointer; font-size: 14px; font-weight: 500;
+      color: var(--text-sub); border-bottom: 2px solid transparent;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .main-nav-item:hover { color: var(--text); }
+    .main-nav-item.active {
+      color: var(--accent); border-bottom-color: var(--accent);
+    }
+    .main-section { display: none; }
+    .main-section.active { display: block; }
+
+    /* ─── Sub Tabs ─── */
     .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
     .tab {
       padding: 10px 20px; border-radius: 8px; cursor: pointer;
@@ -135,6 +154,7 @@
     .badge-published { background: rgba(52,211,153,0.15); color: var(--green); }
     .badge-draft { background: rgba(251,191,36,0.15); color: var(--orange); }
     .badge-cat { background: rgba(124,92,252,0.15); color: var(--accent); }
+    .badge-country { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
     .post-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .post-card-checkbox {
       position: absolute; top: 12px; left: 12px; width: 20px; height: 20px;
@@ -165,10 +185,170 @@
     .action-panel {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
+      position: relative;
     }
     .action-panel h3 { font-size: 15px; margin-bottom: 14px; }
     .action-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
     .action-row .form-group { flex: 1; min-width: 200px; margin-bottom: 0; }
+    .action-panel.collapsed .action-panel-body { display: none; }
+    .action-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; user-select: none;
+    }
+    .action-panel-header h3 { margin-bottom: 0; }
+    .collapse-icon {
+      font-size: 18px; color: var(--text-sub); transition: transform 0.2s;
+    }
+    .action-panel.collapsed .collapse-icon { transform: rotate(-90deg); }
+
+    /* ─── Curation Form ─── */
+    .curate-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .curate-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .section-label {
+      display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--accent); margin-bottom: 12px;
+    }
+    .curate-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .curate-row:last-child { margin-bottom: 0; }
+    .curate-row .form-group { margin-bottom: 0; }
+    .image-upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 16px; transition: border-color 0.2s; min-height: 100px;
+    }
+    .image-upload-zone.dragover { border-color: var(--accent); background: rgba(124, 92, 252, 0.05); }
+    .upload-placeholder {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      cursor: pointer; padding: 16px; color: var(--text-sub); font-size: 13px;
+    }
+    .upload-placeholder .upload-icon { font-size: 24px; }
+    .upload-placeholder .upload-hint { font-size: 11px; opacity: 0.6; }
+    .image-preview-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+    .image-preview-grid .preview-item {
+      position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden;
+    }
+    .image-preview-grid .preview-item img { width: 100%; height: 100%; object-fit: cover; }
+    .image-preview-grid .preview-item .remove-btn {
+      position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: #fff;
+      border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ─── Country Filter ─── */
+    .country-filter { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+    .country-btn {
+      padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+      background: transparent; border: 1px solid var(--border); color: var(--text-sub); transition: all 0.15s;
+    }
+    .country-btn.active { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; color: #60a5fa; }
+    .country-btn:hover { border-color: var(--text-sub); }
+
+    /* ─── Stat Cards ─── */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+    }
+    .stat-card-label { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card-value { font-size: 28px; font-weight: 700; }
+    .stat-card-sub { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+    /* ─── Country Cards ─── */
+    .country-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .country-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .country-card:hover { border-color: var(--accent); }
+    .country-card-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .country-card-flag { font-size: 32px; }
+    .country-card-name { font-size: 16px; font-weight: 600; }
+    .country-card-code { font-size: 12px; color: var(--text-sub); }
+    .country-card-stats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .country-card-stat {
+      display: flex; justify-content: space-between; font-size: 13px;
+    }
+    .country-card-stat-label { color: var(--text-sub); }
+    .country-card-categories { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ─── API Cards ─── */
+    .api-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .api-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+    }
+    .api-card-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .api-card-icon { font-size: 24px; }
+    .api-card-name { font-size: 16px; font-weight: 600; }
+    .api-card-status {
+      font-size: 11px; padding: 3px 8px; border-radius: 4px;
+      background: rgba(52,211,153,0.15); color: var(--green);
+    }
+
+    /* ─── Top Management ─── */
+    .top-rank-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; background: var(--surface2); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .top-rank-badge {
+      min-width: 48px; text-align: center; font-size: 13px; font-weight: 700;
+      padding: 4px 10px; border-radius: 6px;
+      background: rgba(255,75,110,0.2); color: #FF4B6E;
+    }
+    .top-rank-title {
+      flex: 1; font-size: 14px; font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .top-rank-category { font-size: 11px; color: var(--accent); }
+    .top-rank-priority {
+      font-size: 12px; color: var(--text-sub);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .top-rank-priority input {
+      width: 60px; padding: 4px 8px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text); font-size: 13px; text-align: center;
+    }
+    .top-empty { color: var(--text-sub); font-size: 13px; font-style: italic; padding: 8px 0; }
+
+    /* ─── Cron Table ─── */
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .data-table th {
+      text-align: left; padding: 12px 16px; background: var(--surface2);
+      color: var(--text-sub); font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .data-table td {
+      padding: 10px 16px; border-top: 1px solid var(--border);
+    }
+    .data-table tr:hover td { background: rgba(124,92,252,0.03); }
+
+    /* ─── Back Button ─── */
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+      background: transparent; color: var(--text); font-size: 14px;
+      cursor: pointer; margin-bottom: 16px; transition: all 0.15s;
+    }
+    .back-btn:hover { border-color: var(--text-sub); }
 
     /* ─── Toast ─── */
     .toast-container {
@@ -194,7 +374,6 @@
       border-radius: 50%; animation: spin 0.6s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       display: flex; align-items: center; justify-content: center;
@@ -206,11 +385,54 @@
       display: flex; align-items: center; gap: 12px; font-size: 14px;
     }
 
+    /* ─── Sync Cache Table ─── */
+    .cache-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px; margin-top: 16px;
+    }
+    .cache-entry {
+      background: var(--surface2); border-radius: 8px; padding: 12px;
+      font-size: 12px;
+    }
+    .cache-entry-country { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .cache-entry-detail { color: var(--text-sub); }
+
+    /* ─── Feed Source Sub-tabs ─── */
+    .source-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .source-tab {
+      padding: 8px 16px; border-radius: 8px; cursor: pointer;
+      font-size: 13px; background: transparent; border: 1px solid var(--border);
+      color: var(--text-sub); transition: all 0.15s; font-weight: 500;
+    }
+    .source-tab:hover { border-color: var(--text-sub); }
+    .source-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .api-filter-bar { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+    .api-filter-btn {
+      padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+      background: transparent; border: 1px solid var(--border); color: var(--text-sub); transition: all 0.15s;
+    }
+    .api-filter-btn.active { background: rgba(124,92,252,0.15); border-color: var(--accent); color: var(--accent); }
+    .api-filter-btn:hover { border-color: var(--text-sub); }
+
+    .sync-bar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      margin-bottom: 20px; padding: 14px 18px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .sync-bar h2 { font-size: 18px; margin-right: auto; }
+
     @media (max-width: 768px) {
       .container { padding: 16px; }
       .post-grid { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .country-grid { grid-template-columns: 1fr; }
+      .api-grid { grid-template-columns: 1fr; }
       .action-row { flex-direction: column; }
       .action-row .form-group { min-width: 100%; }
+      .curate-row { flex-direction: column; }
+      .country-filter { flex-wrap: wrap; }
+      .main-nav { overflow-x: auto; }
     }
   </style>
 </head>
@@ -231,7 +453,7 @@
 <div class="login-wrap" id="loginScreen">
   <div class="login-box">
     <h1>Daydate Admin</h1>
-    <p>Feed 관리 페이지에 로그인하세요</p>
+    <p>관리 대시보드에 로그인하세요</p>
     <div class="form-group">
       <label>Email</label>
       <input type="email" id="loginEmail" placeholder="admin@example.com" />
@@ -251,94 +473,546 @@
 <div class="app" id="appScreen">
   <!-- Header -->
   <div class="header">
-    <h1>Daydate Feed Admin</h1>
+    <h1>Daydate Admin</h1>
     <div class="header-right">
       <span class="user-email" id="userEmail"></span>
       <button class="btn btn-outline btn-sm" onclick="handleLogout()">Logout</button>
     </div>
   </div>
 
-  <div class="container">
-    <!-- Action Panels -->
-    <div class="action-panel">
-      <h3>KOPIS Sync (공연/전시 자동 수집)</h3>
-      <p style="font-size:13px;color:var(--text-sub);margin-bottom:12px">
-        KOPIS API에서 현재~30일 내 공연/축제를 자동 수집합니다. (공연DB: 대중음악, 대중무용 / 축제DB: 대중음악, 대중무용)
+  <!-- Main Navigation -->
+  <div class="main-nav" id="mainNav">
+    <div class="main-nav-item active" data-section="feed" onclick="switchMainNav(this)">피드 관리</div>
+    <div class="main-nav-item" data-section="create" onclick="switchMainNav(this)">피드 제작</div>
+    <div class="main-nav-item" data-section="top" onclick="switchMainNav(this)">Top 관리</div>
+    <div class="main-nav-item" data-section="countries" onclick="switchMainNav(this)">국가별 피드</div>
+    <div class="main-nav-item" data-section="automation" onclick="switchMainNav(this)">자동화 모니터링</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SECTION: 피드 관리 -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="main-section active" id="section-feed">
+    <div class="container">
+      <!-- Sync Bar -->
+      <div class="sync-bar" style="flex-wrap:wrap;gap:6px">
+        <h2>피드 관리</h2>
+        <button class="btn btn-primary btn-sm" id="btnSyncAll" onclick="syncAllFeeds()">🔄 전체 Sync</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncKopis" onclick="syncKopis()">🎭 KOPIS</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncTourApi" onclick="syncTourApi()">🗺️ TourAPI</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncKcisaAll" onclick="syncKcisa('all')">🏛️ KCISA</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncKcisaShow" onclick="syncKcisa('show_festival')" style="font-size:11px">🎭 공연/축제</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncKcisaExhibition" onclick="syncKcisa('exhibition')" style="font-size:11px">🖼️ 전시</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncKcisaSports" onclick="syncKcisa('sports')" style="font-size:11px">⚽ 스포츠</button>
+        <button class="btn btn-outline btn-sm" id="btnSyncOlympic" onclick="syncOlympic()">🏟️ 올림픽공원</button>
+        <button class="btn btn-sm" id="btnRunBot3" onclick="runBot3()" style="background:#6366f1;color:#fff">🤖 봇3</button>
+        <button class="btn btn-sm" id="btnRunBot4" onclick="runBot4()" style="background:#6366f1;color:#fff">🏟️ 봇4</button>
+        <button class="btn btn-orange btn-sm" id="btnCleanExpired" onclick="cleanExpiredEvents()">🗑 만료 정리 <span id="expiredCount" style="font-size:11px"></span></button>
+      </div>
+
+      <!-- Card News Panel -->
+      <div class="action-panel collapsed" id="panelCardNews">
+        <div class="action-panel-header" onclick="togglePanel('panelCardNews')">
+          <h3>Card News (카드뉴스 피드)</h3>
+          <span class="collapse-icon">▼</span>
+        </div>
+        <div class="action-panel-body">
+        <p style="font-size:13px;color:var(--text-sub);margin-bottom:14px;margin-top:14px">
+          벚꽃 개화 시기, 나들이 명소 등 이미지+캡션만 있는 정보성 카드뉴스를 만듭니다. 하단 버튼(예매/자세히보기) 없이 표시됩니다.
+        </p>
+        <div class="curate-section">
+          <span class="section-label">Images</span>
+          <div class="image-upload-zone" id="cardNewsDropZone">
+            <input type="file" id="cardNewsImages" accept="image/jpeg,image/png,image/webp" multiple style="display:none" />
+            <div class="upload-placeholder" id="cardNewsUploadPlaceholder" onclick="document.getElementById('cardNewsImages').click()">
+              <span class="upload-icon">🖼️</span>
+              <span>Click or drag images here (max 5)</span>
+            </div>
+            <div class="image-preview-grid" id="cardNewsPreviewGrid"></div>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Content</span>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Title <span style="color:var(--accent)">*</span></label>
+            <input type="text" id="cardNewsTitle" placeholder="예: 2026 벚꽃 개화 시기 총정리" />
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Description (GPT 캡션 생성에 사용)</label>
+            <textarea id="cardNewsCaption" rows="4" placeholder="카드뉴스 내용을 입력하세요..."></textarea>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Classification</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label>Country</label>
+              <input type="text" id="cardNewsCountry" value="KR" placeholder="예: KR, US, JP" maxlength="2" style="text-transform:uppercase" />
+            </div>
+            <div>
+              <label>Category</label>
+              <select id="cardNewsCategory">
+                <option value="spot">spot (명소/장소)</option>
+                <option value="festival">festival (축제/시즌)</option>
+                <option value="activity">activity (활동)</option>
+                <option value="restaurant">restaurant (맛집)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="saveCardNewsDraft()">Save as Draft</button>
+          <button class="btn btn-green" style="flex:1" onclick="publishCardNews()">Save &amp; Publish (GPT 캡션)</button>
+        </div>
+        </div>
+      </div>
+
+      <!-- Source Sub-tabs -->
+      <div class="source-tabs" id="feedSourceTabs">
+        <div class="source-tab active" data-source="all" onclick="switchFeedSource(this)">전체</div>
+        <div class="source-tab" data-source="api" onclick="switchFeedSource(this)">API 피드</div>
+        <div class="source-tab" data-source="bot" onclick="switchFeedSource(this)">봇 피드</div>
+      </div>
+
+      <!-- API Source Filter (shown when API 피드 selected) -->
+      <div class="api-filter-bar" id="apiSourceFilter" style="display:none">
+        <button class="api-filter-btn active" data-api="all" onclick="switchApiSource(this)">전체 API</button>
+        <button class="api-filter-btn" data-api="kopis" onclick="switchApiSource(this)">🎭 KOPIS</button>
+        <button class="api-filter-btn" data-api="tourapi" onclick="switchApiSource(this)">🗺️ TourAPI</button>
+        <button class="api-filter-btn" data-api="kcisa" onclick="switchApiSource(this)">🏛️ KCISA</button>
+        <button class="api-filter-btn" data-api="ticketmaster" onclick="switchApiSource(this)">🎫 Ticketmaster</button>
+        <button class="api-filter-btn" data-api="eventbrite" onclick="switchApiSource(this)">🎪 Eventbrite</button>
+      </div>
+
+      <!-- ── Feed Posts View (전체 / API) ── -->
+      <div id="feedPostsView">
+        <div class="tabs" id="feedStatusTabs">
+          <div class="tab active" data-status="all" onclick="switchTab(this)">All</div>
+          <div class="tab" data-status="published" onclick="switchTab(this)">Published</div>
+          <div class="tab" data-status="draft" onclick="switchTab(this)">Draft</div>
+        </div>
+        <div class="country-filter" id="countryFilterBar">
+          <button class="country-btn active" data-country="all" onclick="switchCountry(this)">All</button>
+          <button class="country-btn" data-country="KR" onclick="switchCountry(this)">🇰🇷 KR</button>
+          <button class="country-btn" data-country="US" onclick="switchCountry(this)">🇺🇸 US</button>
+          <button class="country-btn" data-country="JP" onclick="switchCountry(this)">🇯🇵 JP</button>
+          <button class="country-btn" data-country="TW" onclick="switchCountry(this)">🇹🇼 TW</button>
+          <button class="country-btn" data-country="ES" onclick="switchCountry(this)">🇪🇸 ES</button>
+        </div>
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <span class="count-badge" id="postCount">0 posts</span>
+            <label style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-sub);cursor:pointer">
+              <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="accent-color:var(--accent)" />
+              Select All
+            </label>
+          </div>
+          <div class="toolbar-right">
+            <span id="selectedCount" style="font-size:13px;color:var(--accent);font-weight:500"></span>
+            <button class="btn btn-green btn-sm" id="btnBulkPublish" onclick="bulkPublish()" style="display:none">Publish Selected</button>
+            <button class="btn btn-orange btn-sm" id="btnBulkUnpublish" onclick="bulkUnpublish()" style="display:none">Unpublish Selected</button>
+            <button class="btn btn-red btn-sm" id="btnBulkDelete" onclick="bulkDelete()" style="display:none">Delete Selected</button>
+            <button class="btn btn-outline btn-sm" onclick="loadPosts()">Refresh</button>
+          </div>
+        </div>
+        <div class="post-grid" id="postGrid"></div>
+      </div>
+
+      <!-- ── Bot Feed View (봇 피드) ── -->
+      <div id="botFeedView" style="display:none">
+        <div class="stat-grid" id="botFeedStats"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="runBot3()">🛍️ 봇3 실행 (팝업/마켓/영화)</button>
+          <button class="btn btn-primary" onclick="runBot4()">🏟️ 봇4 실행 (스포츠)</button>
+          <button class="btn btn-green btn-sm" onclick="bulkVerifyBotFeed()">✅ 미검증 전체 승인</button>
+          <button class="btn btn-red btn-sm" onclick="deleteAllBotFeed()">🗑 전체 삭제</button>
+          <button class="btn btn-outline btn-sm" onclick="loadBotFeed()">🔄 새로고침</button>
+        </div>
+        <div class="tabs" id="botFeedTabs">
+          <div class="tab active" data-cat="all" onclick="switchBotFeedTab(this)">전체</div>
+          <div class="tab" data-cat="popup" onclick="switchBotFeedTab(this)">🛍️ 팝업스토어</div>
+          <div class="tab" data-cat="market" onclick="switchBotFeedTab(this)">🛒 플리마켓</div>
+          <div class="tab" data-cat="movie_special" onclick="switchBotFeedTab(this)">🎬 특별상영</div>
+          <div class="tab" data-cat="sports" onclick="switchBotFeedTab(this)">🏟️ 스포츠</div>
+          <div class="tab" data-cat="concert" onclick="switchBotFeedTab(this)">🎵 공연</div>
+          <div class="tab" data-cat="exhibition" onclick="switchBotFeedTab(this)">🎨 전시</div>
+          <div class="tab" data-cat="festival" onclick="switchBotFeedTab(this)">🎪 축제</div>
+        </div>
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <span class="count-badge" id="botFeedCount">0건</span>
+            <select id="botFeedVerifyFilter" onchange="loadBotFeed()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+              <option value="all">전체 상태</option>
+              <option value="unverified">미검증만</option>
+              <option value="verified">검증됨만</option>
+            </select>
+            <select id="botFeedRegionFilter" onchange="loadBotFeed()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+              <option value="all">전체 지역</option>
+              <option value="seoul">서울</option>
+              <option value="gyeonggi">경기</option>
+              <option value="incheon">인천</option>
+              <option value="daejeon">대전</option>
+              <option value="busan">부산</option>
+              <option value="daegu">대구</option>
+              <option value="gwangju">광주</option>
+              <option value="other">기타</option>
+            </select>
+          </div>
+        </div>
+        <div class="post-grid" id="botFeedGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SECTION: 피드 제작 -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="main-section" id="section-create">
+    <div class="container">
+      <h2 style="margin-bottom:16px">피드 제작</h2>
+
+      <!-- Manual Curation Panel -->
+      <div class="action-panel collapsed" id="panelCuration">
+        <div class="action-panel-header" onclick="togglePanel('panelCuration')">
+          <h3>수동 이벤트 등록</h3>
+          <span class="collapse-icon">▼</span>
+        </div>
+        <div class="action-panel-body">
+        <p style="font-size:13px;color:var(--text-sub);margin-bottom:14px;margin-top:14px">
+          YES24, nol 등에서 찾은 축제/공연을 직접 등록합니다. 예매링크는 자동으로 제휴링크(LinkPrice)로 변환됩니다.
+        </p>
+        <div class="curate-section">
+          <span class="section-label">Images</span>
+          <div class="image-upload-zone" id="imageDropZone">
+            <input type="file" id="curateImages" accept="image/jpeg,image/png,image/webp" multiple style="display:none" />
+            <div class="upload-placeholder" id="uploadPlaceholder" onclick="document.getElementById('curateImages').click()">
+              <span class="upload-icon">📷</span>
+              <span>Click or drag images here (max 5)</span>
+              <span class="upload-hint">JPG, PNG, WebP</span>
+            </div>
+            <div class="image-preview-grid" id="imagePreview"></div>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Event Info</span>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Title (이벤트명) *</label>
+            <input type="text" id="curateTitle" placeholder="예: 2026 서울 재즈 페스티벌" />
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Description (설명 - GPT 캡션 생성용)</label>
+            <textarea id="curateCaption" rows="3" placeholder="이벤트 특징, 분위기, 추천 포인트 등...&#10;예: 올림픽공원 야외무대, 세계적 재즈 아티스트 라인업, 커플 추천"></textarea>
+          </div>
+          <div class="curate-row">
+            <div class="form-group" style="flex:1">
+              <label>Location (장소)</label>
+              <input type="text" id="curateLocation" placeholder="예: 올림픽공원 88잔디마당" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>Price (가격)</label>
+              <input type="text" id="curatePrice" placeholder="예: 무료 / 55,000원~" />
+            </div>
+          </div>
+          <div class="curate-row">
+            <div class="form-group" style="flex:1">
+              <label>Start Date (시작일)</label>
+              <input type="date" id="curateStartDate" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>End Date (종료일)</label>
+              <input type="date" id="curateEndDate" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="curateIsFree" style="accent-color:var(--accent);width:18px;height:18px" onchange="onCurateFreeChange()" />
+              무료 이벤트 (Free event)
+            </label>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Links</span>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>예매 링크 (Booking URL) - 자동 제휴링크 변환</label>
+            <input type="url" id="curateBookingUrl" placeholder="https://ticket.yes24.com/... 또는 https://nol.yanolja.com/..." />
+            <span style="font-size:11px;color:var(--text-sub);margin-top:4px;display:block">YES24, nol(야놀자), Klook, KKday 링크 → LinkPrice 제휴링크로 자동 변환</span>
+          </div>
+          <div class="form-group">
+            <label>정보 링크 (Info URL) - 선택사항</label>
+            <input type="url" id="curateInfoUrl" placeholder="https://www.festival-website.com (이벤트 공식 사이트 등)" />
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Classification</span>
+          <div class="curate-row">
+            <div class="form-group" style="flex:1">
+              <label>Country</label>
+              <input type="text" id="curateCountry" value="KR" placeholder="예: KR, US, JP" maxlength="2" style="text-transform:uppercase" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>Category</label>
+              <select id="curateCategory">
+                <option value="festival">festival</option>
+                <option value="show">show</option>
+                <option value="tv_audience">tv_audience (방청)</option>
+                <option value="activity">activity</option>
+                <option value="popup">popup (팝업스토어)</option>
+                <option value="experience">experience (전시/체험)</option>
+                <option value="restaurant">restaurant</option>
+                <option value="spot">spot</option>
+                <option value="pet">pet</option>
+                <option value="sports">sports (운동·스포츠)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Targeting (선택)</span>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+            <input type="checkbox" id="curateAnniversaryTarget" style="accent-color:var(--accent);width:18px;height:18px" onchange="toggleAnniversaryOptions()" />
+            기념일 타겟팅 (기념일 가까운 유저에게만 노출)
+          </label>
+          <div id="anniversaryOptions" style="display:none;padding-left:4px">
+            <div style="display:flex;gap:16px;margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+                <input type="checkbox" id="curateTargetAnniversary" checked style="accent-color:var(--accent)" />
+                연애 기념일
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+                <input type="checkbox" id="curateTargetWedding" style="accent-color:var(--accent)" />
+                결혼 기념일
+              </label>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label style="font-size:13px">D-day 며칠 전부터 노출</label>
+              <input type="number" id="curateTargetDaysBefore" value="14" min="1" max="60" style="width:80px" />
+              <span style="font-size:11px;color:var(--text-sub);margin-top:4px;display:block">예: 14 → 기념일 2주 전부터 피드 상단에 노출, 기념일 지나면 자동 숨김</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="curatePost()">Save as Draft</button>
+          <button class="btn btn-green" style="flex:1" onclick="curateAndPublish()">Save &amp; Publish (GPT 캡션)</button>
+        </div>
+        </div>
+      </div>
+
+      <!-- Instagram Feed Panel (팝업스토어 수동 등록) -->
+      <div class="action-panel collapsed" id="panelInstagram">
+        <div class="action-panel-header" onclick="togglePanel('panelInstagram')">
+          <h3>팝업스토어 수동 등록 (Instagram Feed)</h3>
+          <span class="collapse-icon">▼</span>
+        </div>
+        <div class="action-panel-body">
+        <p style="font-size:13px;color:var(--text-sub);margin-bottom:14px;margin-top:14px">
+          Instagram URL을 입력하고 썸네일 이미지를 첨부하여 팝업스토어/행사 피드를 만듭니다. Instagram 링크는 외부링크로 연결됩니다.
+        </p>
+        <div class="curate-section">
+          <span class="section-label">Instagram</span>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Instagram URL <span style="color:var(--accent)">*</span></label>
+            <input type="url" id="igUrl" placeholder="https://www.instagram.com/p/... 또는 https://www.instagram.com/reel/..." />
+            <span style="font-size:11px;color:var(--text-sub);margin-top:4px;display:block">게시물, 릴스, 프로필 URL 모두 가능</span>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Thumbnail Image</span>
+          <div class="image-upload-zone" id="igDropZone">
+            <input type="file" id="igImages" accept="image/jpeg,image/png,image/webp" multiple style="display:none" />
+            <div class="upload-placeholder" id="igUploadPlaceholder" onclick="document.getElementById('igImages').click()">
+              <span class="upload-icon">📸</span>
+              <span>썸네일 이미지를 첨부하세요 (max 5)</span>
+              <span class="upload-hint">JPG, PNG, WebP</span>
+            </div>
+            <div class="image-preview-grid" id="igPreviewGrid"></div>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Event Info</span>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Title (행사명) <span style="color:var(--accent)">*</span></label>
+            <input type="text" id="igTitle" placeholder="예: 나이키 팝업스토어 성수" />
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>Description (설명 - GPT 캡션 생성용)</label>
+            <textarea id="igCaption" rows="3" placeholder="행사 특징, 분위기, 추천 포인트 등..."></textarea>
+          </div>
+          <div class="curate-row">
+            <div class="form-group" style="flex:1"><label>Location (장소)</label><input type="text" id="igLocation" placeholder="예: 서울 성수동" /></div>
+            <div class="form-group" style="flex:1"><label>Price (가격)</label><input type="text" id="igPrice" placeholder="예: 무료 / 입장료 5,000원" /></div>
+          </div>
+          <div class="curate-row">
+            <div class="form-group" style="flex:1"><label>Start Date (시작일)</label><input type="date" id="igStartDate" /></div>
+            <div class="form-group" style="flex:1"><label>End Date (종료일)</label><input type="date" id="igEndDate" /></div>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="igIsFree" checked style="accent-color:var(--accent);width:18px;height:18px" />
+              무료 이벤트 (Free event)
+            </label>
+          </div>
+        </div>
+        <div class="curate-section">
+          <span class="section-label">Classification</span>
+          <div class="curate-row">
+            <div class="form-group" style="flex:1">
+              <label>Country</label>
+              <input type="text" id="igCountry" value="KR" placeholder="예: KR, US, JP" maxlength="2" style="text-transform:uppercase" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>Category</label>
+              <select id="igCategory">
+                <option value="popup" selected>popup (팝업스토어)</option>
+                <option value="experience">experience (전시/체험)</option>
+                <option value="festival">festival</option>
+                <option value="activity">activity</option>
+                <option value="show">show</option>
+                <option value="restaurant">restaurant</option>
+                <option value="spot">spot</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="saveInstagramDraft()">Save as Draft</button>
+          <button class="btn btn-green" style="flex:1" onclick="publishInstagram()">Save &amp; Publish (GPT 캡션)</button>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SECTION: Top 관리 -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="main-section" id="section-top">
+    <div class="container">
+      <h2 style="margin-bottom:8px">카테고리별 Top 5 관리</h2>
+      <p style="color:var(--text-sub);font-size:13px;margin-bottom:20px">
+        각 카테고리 섹션의 Top 1~5를 선택합니다. Priority 값이 높을수록 상위에 노출됩니다.
       </p>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-primary" id="btnSyncKopis" onclick="syncKopis()">
-          Sync Now
-        </button>
-        <button class="btn btn-orange" id="btnCleanExpired" onclick="cleanExpiredEvents()">
-          Clean Expired
-        </button>
-        <span id="expiredCount" style="font-size:12px;color:var(--text-sub)"></span>
+
+      <!-- Section Tabs -->
+      <div class="tabs" id="topSectionTabs">
+        <div class="tab active" data-top-section="show_festival" onclick="switchTopSection(this)">🎭 공연·축제·방청</div>
+        <div class="tab" data-top-section="exhibition_popup" onclick="switchTopSection(this)">🎨 전시·팝업</div>
+        <div class="tab" data-top-section="activity" onclick="switchTopSection(this)">🏄 액티비티</div>
+        <div class="tab" data-top-section="sports" onclick="switchTopSection(this)">⚽ 운동·스포츠</div>
+      </div>
+
+      <!-- Current Top 5 -->
+      <div class="action-panel" style="margin-bottom:20px">
+        <h3 style="margin-bottom:14px">현재 Top 5 <span id="topSectionLabel" style="color:var(--accent)"></span></h3>
+        <div id="topCurrentList" style="display:flex;flex-direction:column;gap:8px">
+          <p style="color:var(--text-sub);font-size:13px">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Available Posts for Top Selection -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <span class="count-badge" id="topAvailableCount">0 posts</span>
+          <span style="font-size:13px;color:var(--text-sub)">Published 포스트만 표시</span>
+        </div>
+      </div>
+      <div class="post-grid" id="topPostGrid"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SECTION: 국가별 피드 -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="main-section" id="section-countries">
+    <div class="container">
+      <!-- Country Overview (카드 그리드) -->
+      <div id="countriesOverview">
+        <h2 style="margin-bottom:16px">국가별 피드 현황</h2>
+        <div class="stat-grid" id="countrySummaryStats"></div>
+        <div class="country-grid" id="countryCards">
+          <p style="color:var(--text-sub)">Loading...</p>
+        </div>
+      </div>
+      <!-- Country Detail (포스트 그리드) -->
+      <div id="countryDetail" style="display:none">
+        <button class="back-btn" onclick="showCountriesOverview()">← 국가 목록으로</button>
+        <h2 id="countryDetailTitle" style="margin-bottom:16px"></h2>
+        <div class="country-filter" id="countryDetailCategoryFilter"></div>
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <span class="count-badge" id="countryPostCount">0 posts</span>
+            <label style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-sub);cursor:pointer">
+              <input type="checkbox" id="countrySelectAll" onchange="toggleCountrySelectAll()" style="accent-color:var(--accent)" />
+              Select All
+            </label>
+          </div>
+          <div class="toolbar-right">
+            <span id="countrySelectedCount" style="font-size:13px;color:var(--accent);font-weight:500"></span>
+            <button class="btn btn-green btn-sm" id="btnCountryBulkPublish" onclick="countryBulkPublish()" style="display:none">Publish</button>
+            <button class="btn btn-orange btn-sm" id="btnCountryBulkUnpublish" onclick="countryBulkUnpublish()" style="display:none">Unpublish</button>
+            <button class="btn btn-red btn-sm" id="btnCountryBulkDelete" onclick="countryBulkDelete()" style="display:none">Delete</button>
+          </div>
+        </div>
+        <div class="post-grid" id="countryPostGrid"></div>
       </div>
     </div>
+  </div>
 
-    <div class="action-panel">
-      <h3>Manual Curation (수동 큐레이션)</h3>
-      <div class="action-row" style="flex-wrap:wrap">
-        <div class="form-group" style="flex:1;min-width:200px">
-          <label>Images (최대 5장)</label>
-          <input type="file" id="curateImages" accept="image/jpeg,image/png,image/webp" multiple
-            style="padding:8px;cursor:pointer" />
-          <div id="imagePreview" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"></div>
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SECTION: 자동화 모니터링 -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="main-section" id="section-automation">
+    <div class="container">
+      <h2 style="margin-bottom:16px">자동화 모니터링</h2>
+
+      <!-- Cron Jobs -->
+      <div class="action-panel">
+        <h3 style="margin-bottom:14px">Cron Jobs (예약 작업)</h3>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="cronJobsTable">
+            <thead>
+              <tr>
+                <th>Job Name</th>
+                <th>Schedule</th>
+                <th>Description</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="cronJobsBody">
+              <tr><td colspan="4" style="color:var(--text-sub)">Loading...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="form-group" style="flex:1;min-width:200px">
-          <label>Caption Text (내용 입력) *</label>
-          <textarea id="curateCaption" rows="3" placeholder="장소명, 특징, 날짜, 가격 등 자유롭게 입력...&#10;예: 여의도 벚꽃축제 4/5~4/13, 무료, 한강 야경 포토스팟"></textarea>
+      </div>
+
+      <!-- Edge Functions -->
+      <div class="action-panel" style="margin-top:24px">
+        <h3 style="margin-bottom:14px">Edge Functions (배포된 함수)</h3>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="edgeFunctionsTable">
+            <thead>
+              <tr>
+                <th>Function Name</th>
+                <th>Category</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="edgeFunctionsBody"></tbody>
+          </table>
         </div>
-        <div class="form-group" style="flex:0.4;min-width:130px">
-          <label>Category (optional)</label>
-          <select id="curateCategory">
-            <option value="">GPT 자동 분류</option>
-            <option value="festival">festival</option>
-            <option value="performance">performance</option>
-            <option value="restaurant">restaurant</option>
-            <option value="activity">activity</option>
-            <option value="spot">spot</option>
-            <option value="pet">pet</option>
-          </select>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="action-panel" style="margin-top:24px">
+        <h3 style="margin-bottom:14px">Quick Actions</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="syncKopis()">KOPIS Sync</button>
+          <button class="btn btn-primary" onclick="syncTourApi()">TourAPI Sync</button>
+          <button class="btn btn-primary" onclick="syncKcisa('all')">KCISA 전체 Sync</button>
+          <button class="btn btn-orange" onclick="cleanExpiredEvents()">Clean Expired Events</button>
+          <button class="btn btn-outline" onclick="loadDashboardData()">Refresh Dashboard</button>
         </div>
-        <div class="form-group" style="flex:0.5;min-width:150px">
-          <label>Instagram URL (optional)</label>
-          <input type="url" id="curateUrl" placeholder="https://www.instagram.com/p/..." />
-        </div>
-        <div class="form-group" style="flex:0.5;min-width:150px">
-          <label>Notes (운영자 메모)</label>
-          <input type="text" id="curateNotes" placeholder="추가 메모" />
-        </div>
-        <button class="btn btn-primary" style="height:40px;align-self:flex-end" onclick="curatePost()">Curate</button>
       </div>
     </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <div class="tab active" data-status="all" onclick="switchTab(this)">All</div>
-      <div class="tab" data-status="published" onclick="switchTab(this)">Published</div>
-      <div class="tab" data-status="draft" onclick="switchTab(this)">Draft</div>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <span class="count-badge" id="postCount">0 posts</span>
-        <label style="font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-sub);cursor:pointer">
-          <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="accent-color:var(--accent)" />
-          Select All
-        </label>
-      </div>
-      <div class="toolbar-right">
-        <button class="btn btn-green btn-sm" id="btnBulkPublish" onclick="bulkPublish()" style="display:none">
-          Publish Selected
-        </button>
-        <button class="btn btn-outline btn-sm" onclick="loadPosts()">Refresh</button>
-      </div>
-    </div>
-
-    <!-- Post Grid -->
-    <div class="post-grid" id="postGrid"></div>
   </div>
 </div>
 
@@ -358,12 +1032,27 @@
     <div class="form-group">
       <label>Category</label>
       <select id="editCategory">
-        <option value="performance">performance</option>
+        <option value="show">show</option>
         <option value="festival">festival</option>
-        <option value="restaurant">restaurant</option>
+        <option value="tv_audience">tv_audience (방청)</option>
         <option value="activity">activity</option>
+        <option value="popup">popup (팝업스토어)</option>
+        <option value="experience">experience (전시/체험)</option>
+        <option value="restaurant">restaurant</option>
         <option value="spot">spot</option>
         <option value="pet">pet</option>
+        <option value="sports">sports (운동·스포츠)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Country</label>
+      <select id="editCountry">
+        <option value="KR">🇰🇷 Korea</option>
+        <option value="US">🇺🇸 United States</option>
+        <option value="JP">🇯🇵 Japan</option>
+        <option value="TW">🇹🇼 Taiwan</option>
+        <option value="ES">🇪🇸 Spain</option>
+        <option value="MX">🇲🇽 Mexico</option>
       </select>
     </div>
     <div class="form-group">
@@ -390,6 +1079,12 @@
       <label>Priority (higher = more visible)</label>
       <input type="number" id="editPriority" value="0" />
     </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="editIsFree" style="accent-color:var(--accent);width:18px;height:18px" />
+        무료 공연/이벤트 (Free event)
+      </label>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveEdit()">Save</button>
@@ -407,17 +1102,89 @@
   </div>
 </div>
 
+<!-- ─── Bot Event Detail/Edit Modal ─── -->
+<div class="modal-overlay" id="botEventModal">
+  <div class="modal" style="max-width:700px">
+    <div id="botEventModalContent"></div>
+  </div>
+</div>
+
 <script>
 // ─── Config ───
 const SUPABASE_URL = 'https://olhdwsfhbghpeatzgurp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9saGR3c2ZoYmdocGVhdHpndXJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NzMwODcsImV4cCI6MjA4MDI0OTA4N30.Zt4H3OeZtIg7YfEOEwIyNN89XucV9iuyBQ7mOtLuBq8';
 const EDGE_BASE = `${SUPABASE_URL}/functions/v1`;
+const CACHE_TTL_HOURS = 24;
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentTab = 'all';
+let currentCountry = 'all';
+let currentFeedSource = 'all'; // 'all' | 'api' | 'bot'
+let currentApiSource = 'all'; // 'all' | 'kopis' | 'tourapi' | 'kcisa' | 'ticketmaster' | 'eventbrite'
 let posts = [];
 let selectedIds = new Set();
+let dashboardData = null;
+
+// Country detail state
+let countryDetailCode = null;
+let countryDetailCategory = 'all';
+let countryDetailPosts = [];
+let countrySelectedIds = new Set();
+
+const COUNTRY_FLAGS = {
+  KR: '🇰🇷', US: '🇺🇸', JP: '🇯🇵', TW: '🇹🇼', ES: '🇪🇸',
+  VN: '🇻🇳', TH: '🇹🇭', SG: '🇸🇬', PH: '🇵🇭', ID: '🇮🇩',
+  MY: '🇲🇾', KH: '🇰🇭', IN: '🇮🇳', FR: '🇫🇷', DE: '🇩🇪',
+  IT: '🇮🇹', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦', BR: '🇧🇷', MX: '🇲🇽',
+};
+const COUNTRY_NAMES = {
+  KR: 'South Korea', US: 'United States', JP: 'Japan', TW: 'Taiwan', ES: 'Spain',
+  VN: 'Vietnam', TH: 'Thailand', SG: 'Singapore', PH: 'Philippines', ID: 'Indonesia',
+  MY: 'Malaysia', KH: 'Cambodia', IN: 'India', FR: 'France', DE: 'Germany',
+  IT: 'Italy', GB: 'United Kingdom', AU: 'Australia', CA: 'Canada', BR: 'Brazil', MX: 'Mexico',
+};
+const COUNTRY_LANG_MAP = { KR: 'ko', US: 'en', JP: 'ja', TW: 'zh-TW', ES: 'es', MX: 'es', FR: 'fr', DE: 'de', IT: 'it', BR: 'pt' };
+function countryFlag(code) { return COUNTRY_FLAGS[code] || '🌐'; }
+function countryName(code) { return COUNTRY_NAMES[code] || code; }
+
+// Edge Function descriptions (static)
+const EDGE_FUNCTIONS = [
+  { name: 'feed-admin', category: 'Feed', desc: '피드 포스트 CRUD 관리 (list, publish, update, delete, bulk)' },
+  { name: 'feed-sync-kopis', category: 'Feed Sync', desc: 'KOPIS 공연/축제 자동 수집 (공연DB + 축제DB)' },
+  { name: 'feed-sync-tourapi', category: 'Feed Sync', desc: 'TourAPI 한국관광공사 축제/행사 수집' },
+  { name: 'feed-sync-kcisa', category: 'Feed Sync', desc: 'KCISA 문화공공데이터광장 공연/전시/스포츠 수집 (12개 API)' },
+  { name: 'feed-sync-events', category: 'Feed Sync', desc: 'Ticketmaster + Eventbrite 해외 이벤트 수집 (24h 캐시)' },
+  { name: 'feed-curate-instagram', category: 'Feed', desc: 'Instagram 콘텐츠 큐레이션' },
+  { name: 'feed-publish-posts', category: 'Feed', desc: 'GPT 캡션 자동 생성 + 게시' },
+  { name: 'admin-status', category: 'Admin', desc: '대시보드 통계 집계 API' },
+  { name: 'plan-notifications', category: 'Notification', desc: '플랜 알림 발송 (프리미엄 전용 타입 포함)' },
+  { name: 'send-push-notification', category: 'Notification', desc: '개별 푸시 알림 발송' },
+  { name: 'send-anniversary-notification', category: 'Notification', desc: '기념일 알림 (5개 언어, 타임존 인식)' },
+  { name: 'cleanup-couples', category: 'Cleanup', desc: '30일 지난 연결해제 커플 영구 삭제' },
+  { name: 'cleanup-orphaned-photos', category: 'Cleanup', desc: '고아 사진 파일 스토리지 정리' },
+  { name: 'cleanup-orphaned-storage', category: 'Cleanup', desc: '미사용 스토리지 파일 정리' },
+  { name: 'delete-user-account', category: 'User', desc: '사용자 계정 삭제 (GDPR 준수)' },
+  { name: 'apple-server-notification', category: 'User', desc: 'Apple 개인정보 콜백 처리 (한국 개인정보보호법)' },
+  { name: 'batch-collect-trending', category: 'Bot', desc: '봇3: 네이버 블로그 + GPT → 팝업/플리마켓/특별상영 수집' },
+  { name: 'batch-collect-sports', category: 'Bot', desc: '봇4: 네이버 뉴스 + GPT → 스포츠 경기 수집' },
+  { name: 'update-feed-highlights', category: 'Bot', desc: '주말 하이라이트 Top5 자동 선정' },
+];
+
+// Cron job descriptions
+const CRON_DESCRIPTIONS = {
+  'feed-sync-kopis-daily': 'KOPIS 공연/축제 일일 자동 동기화',
+  'cleanup-expired-feed-posts': '만료된 피드 포스트 자동 삭제',
+  'cleanup-disconnected-couples-daily': '30일 지난 연결해제 커플 삭제',
+  'cleanup-expired-pairing-codes': '만료 페어링 코드 정리',
+  'expire-subscriptions': '프리미엄 구독 만료 처리',
+  'plan-notifications-hourly': '플랜 관련 알림 발송',
+  'send-anniversary-notifications': '기념일 알림 발송',
+  'cleanup-orphaned-storage-daily': '미사용 스토리지 일일 정리',
+  'batch-collect-trending': '봇3: 팝업/플리마켓/특별상영 자동 수집 (매일 04:00 KST)',
+  'batch-collect-sports': '봇4: 스포츠 경기 자동 수집 (매주 월,목 05:00 KST)',
+  'update-feed-highlights-weekly': '하이라이트 Top5 자동 선정 (매주 수 05:00 KST)',
+};
 
 // ─── Auth ───
 async function isAdmin(email) {
@@ -441,27 +1208,10 @@ async function handleLogin() {
   const password = document.getElementById('loginPassword').value;
   const errEl = document.getElementById('loginError');
   errEl.style.display = 'none';
-
-  if (!email || !password) {
-    errEl.textContent = 'Email and password are required';
-    errEl.style.display = 'block';
-    return;
-  }
-
+  if (!email || !password) { errEl.textContent = 'Email and password are required'; errEl.style.display = 'block'; return; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) {
-    errEl.textContent = error.message;
-    errEl.style.display = 'block';
-    return;
-  }
-
-  if (!(await isAdmin(email))) {
-    await sb.auth.signOut();
-    errEl.textContent = 'Access denied';
-    errEl.style.display = 'block';
-    return;
-  }
-
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  if (!(await isAdmin(email))) { await sb.auth.signOut(); errEl.textContent = 'Access denied'; errEl.style.display = 'block'; return; }
   showApp(data.user);
 }
 
@@ -477,36 +1227,54 @@ function showApp(user) {
   document.getElementById('userEmail').textContent = user.email;
   loadPosts();
   checkExpiredCount();
+  refreshCountryFilter();
+  loadDashboardData();
+}
+
+// ─── Main Navigation ───
+function switchMainNav(el) {
+  document.querySelectorAll('.main-nav-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  const section = el.dataset.section;
+  document.querySelectorAll('.main-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(`section-${section}`).classList.add('active');
+
+  // Load section-specific data
+  if (section === 'feed') loadPosts();
+  if (section === 'top') loadTopSection();
+  if (section === 'countries' && dashboardData) renderCountriesSection();
+  if (section === 'automation') renderAutomationSection();
+}
+
+// ─── Dashboard Data ───
+async function loadDashboardData() {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/admin-status`, { headers });
+    if (!res.ok) throw new Error('Failed to load dashboard data');
+    dashboardData = await res.json();
+    // Render sections if currently visible
+    const activeSection = document.querySelector('.main-section.active')?.id;
+    if (activeSection === 'section-countries') renderCountriesSection();
+    if (activeSection === 'section-automation') renderAutomationSection();
+  } catch (e) {
+    console.error('[Dashboard]', e);
+  }
 }
 
 // ─── API helpers ───
 async function getAuthHeaders() {
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    toast('Session expired. Please re-login.', 'error');
-    handleLogout();
-    throw new Error('No session');
-  }
-  return {
-    'Authorization': `Bearer ${session.access_token}`,
-    'Content-Type': 'application/json',
-  };
+  if (!session) { toast('Session expired. Please re-login.', 'error'); handleLogout(); throw new Error('No session'); }
+  return { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
 }
 
 async function callAdmin(action, method = 'GET', body = null) {
   const headers = await getAuthHeaders();
   const opts = { method, headers };
   let url = `${EDGE_BASE}/feed-admin?action=${action}`;
-
-  if (method === 'GET' && body) {
-    for (const [k, v] of Object.entries(body)) {
-      url += `&${k}=${encodeURIComponent(v)}`;
-    }
-  }
-  if (method === 'POST' && body) {
-    opts.body = JSON.stringify(body);
-  }
-
+  if (method === 'GET' && body) { for (const [k, v] of Object.entries(body)) url += `&${k}=${encodeURIComponent(v)}`; }
+  if (method === 'POST' && body) { opts.body = JSON.stringify(body); }
   const res = await fetch(url, opts);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
@@ -516,70 +1284,80 @@ async function callAdmin(action, method = 'GET', body = null) {
 // ─── Load Posts ───
 async function loadPosts() {
   try {
-    const params = { status: currentTab, limit: '100', offset: '0' };
+    const params = { status: currentTab, limit: '200', offset: '0' };
+    if (currentCountry !== 'all') params.country_code = currentCountry;
     const result = await callAdmin('list', 'GET', params);
-    posts = result.data || [];
+    let data = result.data || [];
+
+    // Client-side source_type filtering
+    const API_SOURCES = ['kopis', 'tourapi', 'kcisa', 'ticketmaster', 'eventbrite'];
+    if (currentFeedSource === 'api') {
+      data = data.filter(p => API_SOURCES.includes(p.source_type));
+      if (currentApiSource !== 'all') {
+        data = data.filter(p => p.source_type === currentApiSource);
+      }
+    }
+
+    posts = data;
     renderPosts();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
+    refreshCountryFilter();
+  } catch (e) { toast(e.message, 'error'); }
 }
 
-// ─── Render ───
+// ─── Render Posts ───
 function renderPosts() {
   const grid = document.getElementById('postGrid');
   document.getElementById('postCount').textContent = `${posts.length} posts`;
   selectedIds.clear();
   updateBulkBtn();
   document.getElementById('selectAll').checked = false;
-
   if (posts.length === 0) {
     grid.innerHTML = '<p style="color:var(--text-sub);text-align:center;padding:40px;grid-column:1/-1">No posts found</p>';
     return;
   }
+  grid.innerHTML = posts.map(p => renderPostCard(p, selectedIds)).join('');
+}
 
-  grid.innerHTML = posts.map(p => {
-    const images = p.images || [];
-    const firstImg = images[0];
-    const isPublished = p.is_published;
-    const tags = (p.tags || []).slice(0, 3);
-    const dateStr = p.event_start_date ? formatDate(p.event_start_date) : '';
-    const endStr = p.event_end_date ? ` ~ ${formatDate(p.event_end_date)}` : '';
-
-    return `
-      <div class="post-card" data-id="${p.id}">
-        <div class="post-card-img-wrap">
-          <input type="checkbox" class="post-card-checkbox" value="${p.id}"
-            ${selectedIds.has(p.id) ? 'checked' : ''}
-            onchange="toggleSelect('${p.id}', this.checked)" />
-          ${firstImg
-            ? `<img class="post-card-img" src="${firstImg}" alt="${esc(p.title)}" onerror="this.parentElement.innerHTML='<div class=no-img>Image unavailable</div>'" />`
-            : `<div class="no-img">No image</div>`}
+function renderPostCard(p, selIds) {
+  const images = p.images || [];
+  const firstImg = images[0];
+  const isPublished = p.is_published;
+  const tags = (p.tags || []).slice(0, 3);
+  const dateStr = p.event_start_date ? formatDate(p.event_start_date) : '';
+  const endStr = p.event_end_date ? ` ~ ${formatDate(p.event_end_date)}` : '';
+  return `
+    <div class="post-card" data-id="${p.id}">
+      <div class="post-card-img-wrap">
+        <input type="checkbox" class="post-card-checkbox" value="${p.id}"
+          ${selIds.has(p.id) ? 'checked' : ''}
+          onchange="toggleSelect('${p.id}', this.checked)" />
+        ${firstImg
+          ? `<img class="post-card-img" src="${firstImg}" alt="${esc(p.title)}" onerror="this.parentElement.innerHTML='<div class=no-img>Image unavailable</div>'" />`
+          : `<div class="no-img">No image</div>`}
+      </div>
+      <div class="post-card-body">
+        <div class="post-card-title" title="${esc(p.title)}">${esc(p.title)}</div>
+        <div class="post-card-caption">${esc(p.caption || '')}</div>
+        <div class="post-card-meta">
+          <span class="badge ${isPublished ? 'badge-published' : 'badge-draft'}">${isPublished ? 'Published' : 'Draft'}</span>
+          <span class="badge badge-cat">${p.category || '-'}</span>
+          ${p.country_code ? `<span class="badge badge-country">${countryFlag(p.country_code)} ${p.country_code}</span>` : ''}
+          ${p.is_free ? `<span class="badge" style="background:rgba(52,211,153,0.15);color:var(--green)">FREE</span>` : ''}
+          ${p.source_type ? `<span class="badge">${p.source_type}</span>` : ''}
+          ${dateStr ? `<span class="badge">${dateStr}${endStr}</span>` : ''}
+          ${images.length > 1 ? `<span class="badge">${images.length} imgs</span>` : ''}
         </div>
-        <div class="post-card-body">
-          <div class="post-card-title" title="${esc(p.title)}">${esc(p.title)}</div>
-          <div class="post-card-caption">${esc(p.caption || '')}</div>
-          <div class="post-card-meta">
-            <span class="badge ${isPublished ? 'badge-published' : 'badge-draft'}">
-              ${isPublished ? 'Published' : 'Draft'}
-            </span>
-            <span class="badge badge-cat">${p.category || '-'}</span>
-            ${p.source_type ? `<span class="badge">${p.source_type}</span>` : ''}
-            ${dateStr ? `<span class="badge">${dateStr}${endStr}</span>` : ''}
-            ${images.length > 1 ? `<span class="badge">${images.length} imgs</span>` : ''}
-          </div>
-          ${tags.length ? `<div style="margin-bottom:10px">${tags.map(t => `<span style="font-size:11px;color:var(--accent);margin-right:6px">#${esc(t)}</span>`).join('')}</div>` : ''}
-          <div class="post-card-actions">
-            <button class="btn btn-outline btn-sm" onclick="viewDetail('${p.id}')">View</button>
-            <button class="btn btn-outline btn-sm" onclick="openEditModal('${p.id}')">Edit</button>
-            ${isPublished
-              ? `<button class="btn btn-orange btn-sm" onclick="unpublishPost('${p.id}')">Unpublish</button>`
-              : `<button class="btn btn-green btn-sm" onclick="publishPost('${p.id}')">Publish</button>`}
-            <button class="btn btn-red btn-sm" onclick="deletePost('${p.id}')">Delete</button>
-          </div>
+        ${tags.length ? `<div style="margin-bottom:10px">${tags.map(t => `<span style="font-size:11px;color:var(--accent);margin-right:6px">#${esc(t)}</span>`).join('')}</div>` : ''}
+        <div class="post-card-actions">
+          <button class="btn btn-outline btn-sm" onclick="viewDetail('${p.id}')">View</button>
+          <button class="btn btn-outline btn-sm" onclick="openEditModal('${p.id}')">Edit</button>
+          ${isPublished
+            ? `<button class="btn btn-orange btn-sm" onclick="unpublishPost('${p.id}')">Unpublish</button>`
+            : `<button class="btn btn-green btn-sm" onclick="publishPost('${p.id}')">Publish</button>`}
+          <button class="btn btn-red btn-sm" onclick="deletePost('${p.id}')">Delete</button>
         </div>
-      </div>`;
-  }).join('');
+      </div>
+    </div>`;
 }
 
 function formatDate(dateStr) {
@@ -601,105 +1379,235 @@ function switchTab(el) {
   loadPosts();
 }
 
-// ─── Selection ───
-function toggleSelect(id, checked) {
-  if (checked) selectedIds.add(id);
-  else selectedIds.delete(id);
-  updateBulkBtn();
+function switchCountry(el) {
+  document.querySelectorAll('#countryFilterBar .country-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentCountry = el.dataset.country;
+  loadPosts();
 }
 
+// ─── Feed Source Tabs (전체/API/봇) ───
+function switchFeedSource(el) {
+  document.querySelectorAll('#feedSourceTabs .source-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentFeedSource = el.dataset.source;
+
+  const feedPostsView = document.getElementById('feedPostsView');
+  const botFeedView = document.getElementById('botFeedView');
+  const apiFilter = document.getElementById('apiSourceFilter');
+
+  if (currentFeedSource === 'bot') {
+    feedPostsView.style.display = 'none';
+    botFeedView.style.display = 'block';
+    apiFilter.style.display = 'none';
+    loadBotFeed();
+  } else {
+    feedPostsView.style.display = 'block';
+    botFeedView.style.display = 'none';
+    apiFilter.style.display = currentFeedSource === 'api' ? 'flex' : 'none';
+    if (currentFeedSource === 'api') {
+      currentApiSource = 'all';
+      document.querySelectorAll('#apiSourceFilter .api-filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('#apiSourceFilter .api-filter-btn[data-api="all"]').classList.add('active');
+    }
+    loadPosts();
+  }
+}
+
+function switchApiSource(el) {
+  document.querySelectorAll('#apiSourceFilter .api-filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentApiSource = el.dataset.api;
+  loadPosts();
+}
+
+async function syncAllFeeds() {
+  const btn = document.getElementById('btnSyncAll');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Syncing...';
+  showLoading('전체 API Sync 중... (최대 3분 소요)');
+  try {
+    const headers = await getAuthHeaders();
+    const results = [];
+
+    // KOPIS
+    try {
+      const res = await fetch(`${EDGE_BASE}/feed-sync-kopis`, { method: 'POST', headers, body: JSON.stringify({}) });
+      const data = await res.json();
+      results.push(`KOPIS: ${data.inserted || 0}개 추가`);
+    } catch (e) { results.push(`KOPIS: 실패 (${e.message})`); }
+
+    // TourAPI
+    try {
+      const res = await fetch(`${EDGE_BASE}/feed-sync-tourapi`, { method: 'POST', headers, body: JSON.stringify({}) });
+      const data = await res.json();
+      results.push(`TourAPI: ${data.inserted || 0}개 추가`);
+    } catch (e) { results.push(`TourAPI: 실패 (${e.message})`); }
+
+    // KCISA
+    try {
+      const res = await fetch(`${EDGE_BASE}/feed-sync-kcisa`, { method: 'POST', headers, body: JSON.stringify({ group: 'all' }) });
+      const data = await res.json();
+      results.push(`KCISA: ${data.inserted || 0}개 추가`);
+    } catch (e) { results.push(`KCISA: 실패 (${e.message})`); }
+
+    // 올림픽공원
+    try {
+      const res = await fetch(`${EDGE_BASE}/feed-sync-olympic`, { method: 'POST', headers, body: JSON.stringify({}) });
+      const data = await res.json();
+      results.push(`올림픽공원: ${data.inserted || 0}개 추가`);
+    } catch (e) { results.push(`올림픽공원: 실패 (${e.message})`); }
+
+    alert('전체 Sync 결과:\n' + results.join('\n'));
+    toast('전체 Sync 완료', 'success');
+    loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '🔄 전체 Sync'; hideLoading(); }
+}
+
+// ─── Selection ───
+function toggleSelect(id, checked) {
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateBulkBtn();
+}
 function toggleSelectAll() {
   const checked = document.getElementById('selectAll').checked;
-  document.querySelectorAll('.post-card-checkbox').forEach(cb => {
+  document.querySelectorAll('#postGrid .post-card-checkbox').forEach(cb => {
     cb.checked = checked;
-    if (checked) selectedIds.add(cb.value);
-    else selectedIds.delete(cb.value);
+    if (checked) selectedIds.add(cb.value); else selectedIds.delete(cb.value);
   });
   updateBulkBtn();
 }
-
 function updateBulkBtn() {
-  const btn = document.getElementById('btnBulkPublish');
-  btn.style.display = selectedIds.size > 0 ? 'inline-flex' : 'none';
-  btn.textContent = `Publish Selected (${selectedIds.size})`;
+  const show = selectedIds.size > 0;
+  document.getElementById('btnBulkPublish').style.display = show ? 'inline-flex' : 'none';
+  document.getElementById('btnBulkUnpublish').style.display = show ? 'inline-flex' : 'none';
+  document.getElementById('btnBulkDelete').style.display = show ? 'inline-flex' : 'none';
+  document.getElementById('selectedCount').textContent = show ? `${selectedIds.size} selected` : '';
 }
 
 // ─── Actions ───
 async function publishPost(id) {
-  try {
-    await callAdmin('publish', 'POST', { id });
-    toast('Published!', 'success');
-    loadPosts();
-  } catch (e) { toast(e.message, 'error'); }
+  const p = posts.find(x => x.id === id) || countryDetailPosts.find(x => x.id === id);
+  const needsCaption = p && (!p.caption || p.caption.trim() === '');
+  if (needsCaption) {
+    showLoading('GPT 캡션 생성 + Publish 중...');
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, { method: 'POST', headers, body: JSON.stringify({ postIds: [id] }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Publish failed');
+      toast('Published with GPT caption!', 'success');
+      reloadCurrentView();
+    } catch (e) { toast(e.message, 'error'); }
+    finally { hideLoading(); }
+  } else {
+    try { await callAdmin('publish', 'POST', { id }); toast('Published!', 'success'); reloadCurrentView(); }
+    catch (e) { toast(e.message, 'error'); }
+  }
 }
 
 async function unpublishPost(id) {
-  try {
-    await callAdmin('unpublish', 'POST', { id });
-    toast('Unpublished', 'success');
-    loadPosts();
-  } catch (e) { toast(e.message, 'error'); }
+  try { await callAdmin('unpublish', 'POST', { id }); toast('Unpublished', 'success'); reloadCurrentView(); }
+  catch (e) { toast(e.message, 'error'); }
 }
 
 async function deletePost(id) {
   if (!confirm('Are you sure you want to delete this post?')) return;
-  try {
-    await callAdmin('delete', 'POST', { id });
-    toast('Deleted', 'success');
+  try { await callAdmin('delete', 'POST', { id }); toast('Deleted', 'success'); reloadCurrentView(); }
+  catch (e) { toast(e.message, 'error'); }
+}
+
+function reloadCurrentView() {
+  const active = document.querySelector('.main-section.active')?.id;
+  if (active === 'section-countries' && countryDetailCode) {
+    loadCountryDetailPosts(countryDetailCode, countryDetailCategory);
+  } else {
     loadPosts();
-  } catch (e) { toast(e.message, 'error'); }
+  }
+  loadDashboardData();
 }
 
 async function bulkPublish() {
   if (selectedIds.size === 0) return;
   if (!confirm(`Publish ${selectedIds.size} posts?`)) return;
+  const needGpt = [], haveCaption = [];
+  for (const id of selectedIds) {
+    const p = posts.find(x => x.id === id);
+    if (p && (!p.caption || p.caption.trim() === '')) needGpt.push(id); else haveCaption.push(id);
+  }
+  showLoading(`Publishing ${selectedIds.size} posts...` + (needGpt.length > 0 ? ` (${needGpt.length}개 GPT 캡션 생성)` : ''));
   try {
-    await callAdmin('bulk_publish', 'POST', { ids: [...selectedIds] });
-    toast(`Published ${selectedIds.size} posts`, 'success');
-    selectedIds.clear();
-    loadPosts();
+    if (needGpt.length > 0) {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, { method: 'POST', headers, body: JSON.stringify({ postIds: needGpt }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'GPT publish failed');
+      toast(`${data.published || 0} posts published with GPT caption`, 'success');
+    }
+    if (haveCaption.length > 0) {
+      await callAdmin('bulk_publish', 'POST', { ids: haveCaption });
+      toast(`${haveCaption.length} posts published`, 'success');
+    }
+    selectedIds.clear(); loadPosts(); loadDashboardData();
   } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function bulkUnpublish() {
+  if (selectedIds.size === 0) return;
+  if (!confirm(`Unpublish ${selectedIds.size} posts?`)) return;
+  showLoading(`Unpublishing ${selectedIds.size} posts...`);
+  try {
+    await callAdmin('bulk_unpublish', 'POST', { ids: Array.from(selectedIds) });
+    toast(`${selectedIds.size} posts unpublished`, 'success');
+    selectedIds.clear(); loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function bulkDelete() {
+  if (selectedIds.size === 0) return;
+  if (!confirm(`Delete ${selectedIds.size} posts permanently?`)) return;
+  showLoading(`Deleting ${selectedIds.size} posts...`);
+  try {
+    await callAdmin('bulk_delete', 'POST', { ids: Array.from(selectedIds) });
+    toast(`${selectedIds.size} posts deleted`, 'success');
+    selectedIds.clear(); loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
 }
 
 // ─── Detail ───
 function viewDetail(id) {
-  const p = posts.find(x => x.id === id);
+  const p = posts.find(x => x.id === id) || countryDetailPosts.find(x => x.id === id);
   if (!p) return;
   const images = p.images || [];
   const attrs = p.image_attributions || [];
   const tags = p.tags || [];
-
   document.getElementById('detailContent').innerHTML = `
     <h2 style="margin-bottom:16px">${esc(p.title)}</h2>
-    ${images.length ? `
-      <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:16px">
-        ${images.map((img, i) => `
-          <img src="${img}" style="height:200px;border-radius:8px;object-fit:cover"
-            onerror="this.style.display='none'" />
-        `).join('')}
-      </div>` : ''}
+    ${images.length ? `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:16px">
+      ${images.map(img => `<img src="${img}" style="height:200px;border-radius:8px;object-fit:cover" onerror="this.style.display='none'" />`).join('')}
+    </div>` : ''}
     <p style="color:var(--text-sub);line-height:1.6;margin-bottom:16px">${esc(p.caption)}</p>
     <table style="width:100%;font-size:13px;border-collapse:collapse">
-      ${detailRow('ID', p.id)}
-      ${detailRow('Category', p.category)}
+      ${detailRow('ID', p.id)}${detailRow('Category', p.category)}
+      ${detailRow('Country', p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '-')}
       ${detailRow('Source', p.source_type + (p.source_id ? ` (${p.source_id})` : ''))}
       ${detailRow('Status', p.is_published ? 'Published' : 'Draft')}
-      ${detailRow('Location', p.location_name)}
-      ${detailRow('Price', p.price)}
+      ${detailRow('Location', p.location_name)}${detailRow('Price', p.price)}
+      ${detailRow('Free', p.is_free ? '<span style="color:var(--green)">Yes</span>' : 'No')}
       ${detailRow('Event', p.event_start_date ? `${p.event_start_date} ~ ${p.event_end_date || ''}` : '-')}
       ${detailRow('External Link', p.external_link ? `<a href="${p.external_link}" target="_blank" style="color:var(--accent)">${p.external_link}</a>` : '-')}
       ${detailRow('Tags', tags.map(t => `#${esc(t)}`).join(' '))}
-      ${detailRow('Priority', p.priority)}
-      ${detailRow('Save Count', p.save_count)}
+      ${detailRow('Priority', p.priority)}${detailRow('Save Count', p.save_count)}
       ${detailRow('Created', new Date(p.created_at).toLocaleString('ko-KR'))}
       ${detailRow('Updated', new Date(p.updated_at).toLocaleString('ko-KR'))}
     </table>
-    ${attrs.length ? `
-      <div style="margin-top:16px">
-        <strong style="font-size:13px">Image Attributions:</strong>
-        ${attrs.map(a => `<div style="font-size:12px;color:var(--text-sub);margin-top:4px">Photo by <a href="${a.photographerUrl}" target="_blank" style="color:var(--accent)">${esc(a.photographerName)}</a></div>`).join('')}
-      </div>` : ''}
-  `;
+    ${attrs.length ? `<div style="margin-top:16px"><strong style="font-size:13px">Image Attributions:</strong>
+      ${attrs.map(a => `<div style="font-size:12px;color:var(--text-sub);margin-top:4px">Photo by <a href="${a.photographerUrl}" target="_blank" style="color:var(--accent)">${esc(a.photographerName)}</a></div>`).join('')}
+    </div>` : ''}`;
   document.getElementById('detailModal').classList.add('show');
 }
 
@@ -707,299 +1615,1709 @@ function detailRow(label, value) {
   return `<tr><td style="padding:6px 8px;color:var(--text-sub);border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top">${label}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);word-break:break-all">${value || '-'}</td></tr>`;
 }
 
-function closeDetailModal() {
-  document.getElementById('detailModal').classList.remove('show');
-}
+function closeDetailModal() { document.getElementById('detailModal').classList.remove('show'); }
 
 // ─── Edit ───
 function openEditModal(id) {
-  const p = posts.find(x => x.id === id);
+  const p = posts.find(x => x.id === id) || countryDetailPosts.find(x => x.id === id);
   if (!p) return;
   document.getElementById('editId').value = p.id;
   document.getElementById('editTitle').value = p.title || '';
   document.getElementById('editCaption').value = p.caption || '';
   document.getElementById('editCategory').value = p.category || 'spot';
+  document.getElementById('editCountry').value = p.country_code || 'KR';
   document.getElementById('editLocation').value = p.location_name || '';
   document.getElementById('editPrice').value = p.price || '';
   document.getElementById('editLink').value = p.external_link || '';
   document.getElementById('editTags').value = (p.tags || []).join(', ');
   document.getElementById('editImages').value = JSON.stringify(p.images || [], null, 2);
   document.getElementById('editPriority').value = p.priority || 0;
+  document.getElementById('editIsFree').checked = !!p.is_free;
   document.getElementById('editModal').classList.add('show');
 }
 
-function closeEditModal() {
-  document.getElementById('editModal').classList.remove('show');
-}
+function closeEditModal() { document.getElementById('editModal').classList.remove('show'); }
 
 async function saveEdit() {
   const id = document.getElementById('editId').value;
   let images;
-  try {
-    images = JSON.parse(document.getElementById('editImages').value);
-  } catch {
-    toast('Invalid images JSON', 'error');
-    return;
-  }
-  const tags = document.getElementById('editTags').value
-    .split(',').map(t => t.trim()).filter(Boolean);
-
+  try { images = JSON.parse(document.getElementById('editImages').value); } catch { toast('Invalid images JSON', 'error'); return; }
+  const tags = document.getElementById('editTags').value.split(',').map(t => t.trim()).filter(Boolean);
   const updates = {
-    id,
-    title: document.getElementById('editTitle').value,
-    caption: document.getElementById('editCaption').value,
-    category: document.getElementById('editCategory').value,
-    location_name: document.getElementById('editLocation').value,
-    price: document.getElementById('editPrice').value,
-    external_link: document.getElementById('editLink').value,
-    tags,
-    images,
+    id, title: document.getElementById('editTitle').value, caption: document.getElementById('editCaption').value,
+    category: document.getElementById('editCategory').value, country_code: document.getElementById('editCountry').value,
+    language: COUNTRY_LANG_MAP[document.getElementById('editCountry').value] || 'ko',
+    location_name: document.getElementById('editLocation').value, price: document.getElementById('editPrice').value,
+    external_link: document.getElementById('editLink').value, tags, images,
     priority: parseInt(document.getElementById('editPriority').value) || 0,
+    is_free: document.getElementById('editIsFree').checked,
   };
+  try { await callAdmin('update', 'POST', updates); toast('Saved!', 'success'); closeEditModal(); reloadCurrentView(); }
+  catch (e) { toast(e.message, 'error'); }
+}
 
+// ═══════════════════════════════════════
+// COUNTRIES SECTION
+// ═══════════════════════════════════════
+function renderCountriesSection() {
+  if (!dashboardData) return;
+  const stats = dashboardData.feed_stats;
+  const countries = stats.by_country || [];
+
+  // Summary stats
+  document.getElementById('countrySummaryStats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-card-label">Total Posts</div>
+      <div class="stat-card-value">${stats.total}</div>
+      <div class="stat-card-sub">${stats.published} published / ${stats.draft} draft</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Countries</div>
+      <div class="stat-card-value">${countries.length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Last 24h</div>
+      <div class="stat-card-value">${dashboardData.recent_posts?.last_24h || 0}</div>
+      <div class="stat-card-sub">new posts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Last 7 Days</div>
+      <div class="stat-card-value">${dashboardData.recent_posts?.last_7d || 0}</div>
+      <div class="stat-card-sub">new posts</div>
+    </div>`;
+
+  // Country cards
+  document.getElementById('countryCards').innerHTML = countries.map(c => {
+    const cats = c.categories || {};
+    const catBadges = Object.entries(cats).map(([cat, cnt]) =>
+      `<span class="badge badge-cat">${cat}: ${cnt}</span>`
+    ).join('');
+    return `
+      <div class="country-card" onclick="openCountryDetail('${c.country_code}')">
+        <div class="country-card-header">
+          <span class="country-card-flag">${countryFlag(c.country_code)}</span>
+          <div>
+            <div class="country-card-name">${countryName(c.country_code)}</div>
+            <div class="country-card-code">${c.country_code}</div>
+          </div>
+        </div>
+        <div class="country-card-stats">
+          <div class="country-card-stat">
+            <span class="country-card-stat-label">Total</span>
+            <span>${c.count}</span>
+          </div>
+          <div class="country-card-stat">
+            <span class="country-card-stat-label">Published</span>
+            <span style="color:var(--green)">${c.published}</span>
+          </div>
+          <div class="country-card-stat">
+            <span class="country-card-stat-label">Draft</span>
+            <span style="color:var(--orange)">${c.count - c.published}</span>
+          </div>
+        </div>
+        <div class="country-card-categories">${catBadges}</div>
+      </div>`;
+  }).join('');
+}
+
+async function openCountryDetail(code) {
+  countryDetailCode = code;
+  countryDetailCategory = 'all';
+  document.getElementById('countriesOverview').style.display = 'none';
+  document.getElementById('countryDetail').style.display = 'block';
+  document.getElementById('countryDetailTitle').textContent = `${countryFlag(code)} ${countryName(code)} (${code})`;
+
+  // Build category filter
+  const c = dashboardData?.feed_stats?.by_country?.find(x => x.country_code === code);
+  const cats = c?.categories || {};
+  const filterHtml = `<button class="country-btn active" data-cat="all" onclick="switchCountryDetailCategory(this, '${code}')">All</button>`
+    + Object.keys(cats).map(cat =>
+      `<button class="country-btn" data-cat="${cat}" onclick="switchCountryDetailCategory(this, '${code}')">${cat} (${cats[cat]})</button>`
+    ).join('');
+  document.getElementById('countryDetailCategoryFilter').innerHTML = filterHtml;
+
+  await loadCountryDetailPosts(code, 'all');
+}
+
+function showCountriesOverview() {
+  countryDetailCode = null;
+  document.getElementById('countriesOverview').style.display = 'block';
+  document.getElementById('countryDetail').style.display = 'none';
+}
+
+async function switchCountryDetailCategory(el, code) {
+  document.querySelectorAll('#countryDetailCategoryFilter .country-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  countryDetailCategory = el.dataset.cat;
+  await loadCountryDetailPosts(code, countryDetailCategory);
+}
+
+async function loadCountryDetailPosts(code, category) {
   try {
-    await callAdmin('update', 'POST', updates);
-    toast('Saved!', 'success');
-    closeEditModal();
-    loadPosts();
+    const params = { status: 'all', limit: '200', offset: '0', country_code: code };
+    const result = await callAdmin('list', 'GET', params);
+    let data = result.data || [];
+    if (category && category !== 'all') {
+      data = data.filter(p => p.category === category);
+    }
+    countryDetailPosts = data;
+    countrySelectedIds.clear();
+    renderCountryDetailPosts();
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ─── KOPIS Sync ───
+function renderCountryDetailPosts() {
+  const grid = document.getElementById('countryPostGrid');
+  document.getElementById('countryPostCount').textContent = `${countryDetailPosts.length} posts`;
+  document.getElementById('countrySelectAll').checked = false;
+  updateCountryBulkBtn();
+
+  if (countryDetailPosts.length === 0) {
+    grid.innerHTML = '<p style="color:var(--text-sub);text-align:center;padding:40px;grid-column:1/-1">No posts found</p>';
+    return;
+  }
+  grid.innerHTML = countryDetailPosts.map(p => renderPostCard(p, countrySelectedIds)).join('');
+
+  // Re-bind checkboxes to country selection
+  grid.querySelectorAll('.post-card-checkbox').forEach(cb => {
+    cb.onchange = function() {
+      if (this.checked) countrySelectedIds.add(this.value); else countrySelectedIds.delete(this.value);
+      updateCountryBulkBtn();
+    };
+  });
+}
+
+function toggleCountrySelectAll() {
+  const checked = document.getElementById('countrySelectAll').checked;
+  document.querySelectorAll('#countryPostGrid .post-card-checkbox').forEach(cb => {
+    cb.checked = checked;
+    if (checked) countrySelectedIds.add(cb.value); else countrySelectedIds.delete(cb.value);
+  });
+  updateCountryBulkBtn();
+}
+
+function updateCountryBulkBtn() {
+  const show = countrySelectedIds.size > 0;
+  document.getElementById('btnCountryBulkPublish').style.display = show ? 'inline-flex' : 'none';
+  document.getElementById('btnCountryBulkUnpublish').style.display = show ? 'inline-flex' : 'none';
+  document.getElementById('btnCountryBulkDelete').style.display = show ? 'inline-flex' : 'none';
+  document.getElementById('countrySelectedCount').textContent = show ? `${countrySelectedIds.size} selected` : '';
+}
+
+async function countryBulkPublish() {
+  if (countrySelectedIds.size === 0) return;
+  if (!confirm(`Publish ${countrySelectedIds.size} posts?`)) return;
+  showLoading(`Publishing ${countrySelectedIds.size} posts...`);
+  try {
+    const needGpt = [], haveCaption = [];
+    for (const id of countrySelectedIds) {
+      const p = countryDetailPosts.find(x => x.id === id);
+      if (p && (!p.caption || p.caption.trim() === '')) needGpt.push(id); else haveCaption.push(id);
+    }
+    if (needGpt.length > 0) {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, { method: 'POST', headers, body: JSON.stringify({ postIds: needGpt }) });
+      if (!res.ok) throw new Error('GPT publish failed');
+    }
+    if (haveCaption.length > 0) await callAdmin('bulk_publish', 'POST', { ids: haveCaption });
+    toast(`${countrySelectedIds.size} posts published`, 'success');
+    countrySelectedIds.clear();
+    await loadCountryDetailPosts(countryDetailCode, countryDetailCategory);
+    loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function countryBulkUnpublish() {
+  if (countrySelectedIds.size === 0) return;
+  if (!confirm(`Unpublish ${countrySelectedIds.size} posts?`)) return;
+  showLoading(`Unpublishing...`);
+  try {
+    await callAdmin('bulk_unpublish', 'POST', { ids: Array.from(countrySelectedIds) });
+    toast(`${countrySelectedIds.size} posts unpublished`, 'success');
+    countrySelectedIds.clear();
+    await loadCountryDetailPosts(countryDetailCode, countryDetailCategory);
+    loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function countryBulkDelete() {
+  if (countrySelectedIds.size === 0) return;
+  if (!confirm(`Delete ${countrySelectedIds.size} posts permanently?`)) return;
+  showLoading(`Deleting...`);
+  try {
+    await callAdmin('bulk_delete', 'POST', { ids: Array.from(countrySelectedIds) });
+    toast(`${countrySelectedIds.size} posts deleted`, 'success');
+    countrySelectedIds.clear();
+    await loadCountryDetailPosts(countryDetailCode, countryDetailCategory);
+    loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// ═══════════════════════════════════════
+// AUTOMATION SECTION
+// ═══════════════════════════════════════
+function renderAutomationSection() {
+  // Cron jobs from dashboard data or fallback
+  const cronJobs = dashboardData?.cron_jobs?.jobs || [];
+
+  if (cronJobs.length > 0) {
+    document.getElementById('cronJobsBody').innerHTML = cronJobs.map(job => `
+      <tr>
+        <td style="font-family:monospace;font-size:12px">${esc(job.jobname)}</td>
+        <td style="font-family:monospace;font-size:12px">${esc(job.schedule)}</td>
+        <td>${CRON_DESCRIPTIONS[job.jobname] || '-'}</td>
+        <td>${job.active !== false
+          ? '<span style="color:var(--green)">Active</span>'
+          : '<span style="color:var(--red)">Inactive</span>'}</td>
+      </tr>`).join('');
+  } else {
+    // Fallback: show known cron jobs
+    const knownJobs = [
+      { name: 'feed-sync-kopis-daily', schedule: '0 21 * * *', desc: 'KOPIS 공연/축제 일일 동기화' },
+      { name: 'cleanup-expired-feed-posts', schedule: '0 18 * * *', desc: '만료 피드 포스트 삭제' },
+      { name: 'cleanup-disconnected-couples-daily', schedule: '0 18 * * *', desc: '30일 지난 커플 삭제' },
+      { name: 'cleanup-expired-pairing-codes', schedule: '0 * * * *', desc: '만료 페어링 코드 정리' },
+      { name: 'expire-subscriptions', schedule: '0 0 * * *', desc: '프리미엄 구독 만료 처리' },
+      { name: 'plan-notifications-hourly', schedule: '0 * * * *', desc: '플랜 알림 발송' },
+      { name: 'send-anniversary-notifications', schedule: '0 * * * *', desc: '기념일 알림 발송' },
+    ];
+    document.getElementById('cronJobsBody').innerHTML = knownJobs.map(job => `
+      <tr>
+        <td style="font-family:monospace;font-size:12px">${job.name}</td>
+        <td style="font-family:monospace;font-size:12px">${job.schedule}</td>
+        <td>${job.desc}</td>
+        <td><span style="color:var(--green)">Active</span></td>
+      </tr>`).join('');
+  }
+
+  // Edge Functions table
+  document.getElementById('edgeFunctionsBody').innerHTML = EDGE_FUNCTIONS.map(fn => `
+    <tr>
+      <td style="font-family:monospace;font-size:12px">${fn.name}</td>
+      <td><span class="badge badge-cat">${fn.category}</span></td>
+      <td>${fn.desc}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════
+// SYNC FUNCTIONS
+// ═══════════════════════════════════════
 async function syncKopis() {
   const btn = document.getElementById('btnSyncKopis');
+  const origText = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div> Syncing...';
   showLoading('KOPIS API 동기화 중... (최대 1분 소요)');
-
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${EDGE_BASE}/feed-sync-kopis`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({}),
-    });
+    const res = await fetch(`${EDGE_BASE}/feed-sync-kopis`, { method: 'POST', headers, body: JSON.stringify({}) });
     const data = await res.json();
-    console.log('[KOPIS Sync Response]', JSON.stringify(data, null, 2));
     if (!res.ok) throw new Error(data.error || 'Sync failed');
-
-    let msg = `Sync: ${data.inserted || 0} inserted, ${data.skippedDuplicates || 0} dupes, ${data.errors || 0} errors (total found: ${data.totalFound || 0})`;
+    let msg = `Sync: ${data.inserted || 0} inserted, ${data.skippedDuplicates || 0} dupes, ${data.errors || 0} errors (total: ${data.totalFound || 0})`;
     if (data.debug) {
-      const debugSummary = data.debug.map(d => `${d.config}: ${d.itemCount || d.dbCount || 0} items, xml=${d.xmlLength || 0}bytes, status=${d.status}\nXML: ${(d.xmlPreview || '').substring(0, 200)}`).join('\n\n');
+      const debugSummary = data.debug.map(d => `${d.config}: ${d.itemCount || d.dbCount || 0} items, status=${d.status}`).join('\n');
       msg += '\n\nDebug:\n' + debugSummary;
-      console.log('[KOPIS Debug]', debugSummary);
-    }
-    if (data.errorDetails && data.errorDetails.length > 0) {
-      msg += '\n\nErrors: ' + data.errorDetails.join(', ');
     }
     alert(msg);
-    toast(
-      `Sync complete: ${data.inserted || 0} inserted, ${data.skippedDuplicates || 0} duplicates, ${data.errors || 0} errors`,
-      data.inserted > 0 ? 'success' : 'info'
-    );
-    loadPosts();
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Sync Now';
+    toast(`Sync: ${data.inserted || 0} inserted`, data.inserted > 0 ? 'success' : 'info');
+    loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = origText; hideLoading(); }
+}
+
+async function syncTourApi() {
+  const btn = document.getElementById('btnSyncTourApi');
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Syncing...';
+  showLoading('TourAPI 동기화 중...');
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-sync-tourapi`, { method: 'POST', headers, body: JSON.stringify({}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+    let msg = `TourAPI: ${data.inserted || 0}개 Draft, ${data.skippedDuplicates || 0} 중복`;
+    if (data.inserted > 0) msg += '\n\nDraft 탭에서 확인 후 Publish하세요.';
+    alert(msg);
+    toast(`TourAPI: ${data.inserted || 0}개 Draft`, data.inserted > 0 ? 'success' : 'info');
+    if (data.inserted > 0) {
+      const draftTab = document.querySelector('.tab[data-status="draft"]');
+      if (draftTab) switchTab(draftTab);
+    }
+    loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = origText; hideLoading(); }
+}
+
+
+async function syncKcisa(group = 'all') {
+  const groupLabels = { show_festival: '공연/축제', exhibition: '전시', sports: '스포츠', all: '전체' };
+  const groupIcons = { show_festival: '🎭', exhibition: '🖼️', sports: '⚽', all: '🏛️' };
+  const label = groupLabels[group] || group;
+  const icon = groupIcons[group] || '';
+  const btnMap = { show_festival: 'btnSyncKcisaShow', exhibition: 'btnSyncKcisaExhibition', sports: 'btnSyncKcisaSports', all: 'btnSyncKcisaAll' };
+  const btn = document.getElementById(btnMap[group]);
+  const origBtnText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Syncing...'; }
+  showLoading(`KCISA ${label} 동기화 중... (최대 2분 소요)`);
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-sync-kcisa`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ group }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+    let msg = `KCISA ${label}: ${data.inserted || 0}개 Draft, ${data.skippedDuplicates || 0} 중복, ${data.errors || 0} 에러`;
+    if (data.results) {
+      msg += '\n\n상세:';
+      data.results.forEach(r => {
+        msg += `\n[${r.name}] ${r.fetched}건 → ${r.inserted}개 삽입, ${r.duplicates} 중복${r.error ? ', Error: ' + r.error : ''}`;
+      });
+    }
+    if (data.inserted > 0) msg += '\n\nDraft 탭에서 확인 후 Publish하세요.';
+    alert(msg);
+    toast(`KCISA ${label}: ${data.inserted || 0}개 Draft`, data.inserted > 0 ? 'success' : 'info');
+    if (data.inserted > 0) {
+      const draftTab = document.querySelector('.tab[data-status="draft"]');
+      if (draftTab) switchTab(draftTab);
+    }
+    loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origBtnText; }
     hideLoading();
   }
 }
 
-// ─── Clean Expired Events ───
-async function cleanExpiredEvents() {
-  const btn = document.getElementById('btnCleanExpired');
+async function syncOlympic() {
+  const btn = document.getElementById('btnSyncOlympic');
+  const origText = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = 'Cleaning...';
-
+  btn.innerHTML = '<div class="spinner"></div> Syncing...';
+  showLoading('올림픽공원 행사 크롤링 중...');
   try {
-    const today = new Date().toISOString().split('T')[0];
-
-    // Count first
-    const { count, error: countErr } = await sb
-      .from('feed_posts')
-      .select('*', { count: 'exact', head: true })
-      .lt('event_end_date', today);
-
-    if (countErr) throw countErr;
-
-    if (!count || count === 0) {
-      toast('No expired events found', 'info');
-      return;
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-sync-olympic`, { method: 'POST', headers, body: JSON.stringify({}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+    let msg = `올림픽공원: ${data.inserted || 0}개 Draft, ${data.skippedDuplicates || 0} 중복, ${data.errors || 0} 에러`;
+    if (data.debug) {
+      msg += '\n\n월별 상세:';
+      data.debug.forEach(d => {
+        msg += `\n[${d.month}] 예정 ${d.upcoming ?? 0}건 + 지난 ${d.past ?? 0}건${d.error ? ' Error: ' + d.error : ''}`;
+      });
     }
-
-    if (!confirm(`${count}개의 지난 이벤트를 삭제하시겠습니까?`)) return;
-
-    // Delete expired events
-    const { error: delErr } = await sb
-      .from('feed_posts')
-      .delete()
-      .lt('event_end_date', today);
-
-    if (delErr) throw delErr;
-
-    toast(`${count}개 지난 이벤트 삭제 완료`, 'success');
-    loadPosts();
-    checkExpiredCount();
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Clean Expired';
-  }
+    if (data.inserted > 0) msg += '\n\nDraft 탭에서 확인 후 Publish하세요.';
+    alert(msg);
+    toast(`올림픽공원: ${data.inserted || 0}개 Draft`, data.inserted > 0 ? 'success' : 'info');
+    if (data.inserted > 0) {
+      const draftTab = document.querySelector('.tab[data-status="draft"]');
+      if (draftTab) switchTab(draftTab);
+    }
+    loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = origText; hideLoading(); }
 }
 
-// Check expired count on load
+async function cleanExpiredEvents() {
+  const btn = document.getElementById('btnCleanExpired');
+  const origText = btn.innerHTML;
+  btn.disabled = true; btn.textContent = 'Cleaning...';
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { count, error: countErr } = await sb.from('feed_posts').select('*', { count: 'exact', head: true }).lt('event_end_date', today);
+    if (countErr) throw countErr;
+    if (!count || count === 0) { toast('No expired events found', 'info'); return; }
+    if (!confirm(`${count}개의 지난 이벤트를 삭제하시겠습니까?`)) return;
+    // 삭제 전 source_id 기록 (재수집 방지)
+    const { data: expiredPosts } = await sb.from('feed_posts').select('source_id, source_type, title, event_end_date').lt('event_end_date', today).not('source_id', 'is', null);
+    if (expiredPosts && expiredPosts.length > 0) {
+      const records = expiredPosts.filter(p => p.source_id).map(p => ({ source_id: p.source_id, source_type: p.source_type || null, title: p.title || null, event_end_date: p.event_end_date || null }));
+      if (records.length > 0) await sb.from('feed_deleted_sources').upsert(records, { onConflict: 'source_id' });
+    }
+    const { error: delErr } = await sb.from('feed_posts').delete().lt('event_end_date', today);
+    if (delErr) throw delErr;
+    toast(`${count}개 삭제 완료`, 'success');
+    loadPosts(); checkExpiredCount(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = origText; }
+}
+
 async function checkExpiredCount() {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const { count } = await sb
-      .from('feed_posts')
-      .select('*', { count: 'exact', head: true })
-      .lt('event_end_date', today);
-
+    const { count } = await sb.from('feed_posts').select('*', { count: 'exact', head: true }).lt('event_end_date', today);
     const el = document.getElementById('expiredCount');
-    if (count > 0) {
-      el.textContent = `(${count}개 만료됨)`;
-      el.style.color = '#EF4444';
-    } else {
-      el.textContent = '';
-    }
+    if (count > 0) { el.textContent = `(${count}개 만료됨)`; el.style.color = '#EF4444'; }
+    else { el.textContent = ''; }
   } catch {}
 }
 
-// ─── Image Preview ───
-document.getElementById('curateImages').addEventListener('change', function() {
+// ═══════════════════════════════════════
+// CURATION
+// ═══════════════════════════════════════
+function renderImagePreviews() {
+  const input = document.getElementById('curateImages');
   const preview = document.getElementById('imagePreview');
+  const placeholder = document.getElementById('uploadPlaceholder');
+  const files = Array.from(input.files).slice(0, 5);
   preview.innerHTML = '';
-  const files = Array.from(this.files).slice(0, 5);
+  if (files.length === 0) { placeholder.style.display = ''; return; }
+  placeholder.style.display = 'none';
   files.forEach((file, i) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden';
-      wrap.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover"/>
-        <span style="position:absolute;top:2px;right:4px;color:#fff;font-size:10px;text-shadow:0 0 3px #000">${i+1}</span>`;
-      preview.appendChild(wrap);
+      const item = document.createElement('div');
+      item.className = 'preview-item';
+      item.innerHTML = `<img src="${e.target.result}" /><button class="remove-btn" onclick="removePreviewImage(${i})">✕</button>`;
+      preview.appendChild(item);
     };
     reader.readAsDataURL(file);
   });
-});
+}
 
-// ─── Upload images to Supabase Storage ───
+function removePreviewImage(index) {
+  const input = document.getElementById('curateImages');
+  const dt = new DataTransfer();
+  Array.from(input.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
+  input.files = dt.files;
+  renderImagePreviews();
+}
+
+function onCurateFreeChange() {
+  const isFree = document.getElementById('curateIsFree').checked;
+  const bookingInput = document.getElementById('curateBookingUrl');
+  if (isFree) { bookingInput.value = ''; bookingInput.disabled = true; bookingInput.style.opacity = '0.4'; }
+  else { bookingInput.disabled = false; bookingInput.style.opacity = '1'; }
+}
+
+function toggleAnniversaryOptions() {
+  const checked = document.getElementById('curateAnniversaryTarget').checked;
+  document.getElementById('anniversaryOptions').style.display = checked ? 'block' : 'none';
+}
+
+function getTargetConfig() {
+  if (!document.getElementById('curateAnniversaryTarget').checked) return null;
+  const types = [];
+  if (document.getElementById('curateTargetAnniversary').checked) types.push('anniversary');
+  if (document.getElementById('curateTargetWedding').checked) types.push('wedding');
+  if (types.length === 0) return null;
+  return {
+    anniversary: {
+      days_before: parseInt(document.getElementById('curateTargetDaysBefore').value) || 14,
+      types,
+    },
+  };
+}
+
+function getCurateFormData() {
+  return {
+    title: document.getElementById('curateTitle').value.trim(),
+    description: document.getElementById('curateCaption').value.trim(),
+    location: document.getElementById('curateLocation').value.trim(),
+    price: document.getElementById('curatePrice').value.trim(),
+    startDate: document.getElementById('curateStartDate').value,
+    endDate: document.getElementById('curateEndDate').value,
+    isFree: document.getElementById('curateIsFree').checked,
+    bookingUrl: document.getElementById('curateBookingUrl').value.trim(),
+    infoUrl: document.getElementById('curateInfoUrl').value.trim(),
+    category: document.getElementById('curateCategory').value,
+    countryCode: document.getElementById('curateCountry').value.toUpperCase().trim(),
+    language: COUNTRY_LANG_MAP[document.getElementById('curateCountry').value.toUpperCase().trim()] || 'ko',
+    imageFiles: Array.from(document.getElementById('curateImages').files).slice(0, 5),
+    targetConfig: getTargetConfig(),
+  };
+}
+
+function resetCurateForm() {
+  ['curateTitle','curateCaption','curateLocation','curatePrice','curateStartDate','curateEndDate','curateBookingUrl','curateInfoUrl'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('curateIsFree').checked = false;
+  document.getElementById('curateBookingUrl').disabled = false;
+  document.getElementById('curateBookingUrl').style.opacity = '1';
+  document.getElementById('curateCategory').value = 'festival';
+  document.getElementById('curateCountry').value = 'KR';
+  document.getElementById('curateImages').value = '';
+  document.getElementById('imagePreview').innerHTML = '';
+  document.getElementById('uploadPlaceholder').style.display = '';
+  document.getElementById('curateAnniversaryTarget').checked = false;
+  document.getElementById('curateTargetAnniversary').checked = true;
+  document.getElementById('curateTargetWedding').checked = false;
+  document.getElementById('curateTargetDaysBefore').value = '14';
+  document.getElementById('anniversaryOptions').style.display = 'none';
+}
+
 async function uploadFeedImages(files) {
   const urls = [];
   for (const file of files) {
     const ext = file.name.split('.').pop().toLowerCase();
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const path = `curated/${fileName}`;
-
-    const { data, error } = await sb.storage
-      .from('feed-images')
-      .upload(path, file, { contentType: file.type, upsert: false });
-
-    if (error) {
-      console.error('Upload error:', error);
-      throw new Error(`Image upload failed: ${error.message}`);
-    }
-
+    const { data, error } = await sb.storage.from('feed-images').upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw new Error(`Image upload failed: ${error.message}`);
     const { data: urlData } = sb.storage.from('feed-images').getPublicUrl(path);
     urls.push(urlData.publicUrl);
   }
   return urls;
 }
 
-// ─── Manual Curation ───
 async function curatePost() {
-  const url = document.getElementById('curateUrl').value.trim();
-  const caption = document.getElementById('curateCaption').value.trim();
-  const notes = document.getElementById('curateNotes').value.trim();
-  const category = document.getElementById('curateCategory').value;
-  const imageInput = document.getElementById('curateImages');
-  const imageFiles = Array.from(imageInput.files).slice(0, 5);
-
-  if (!caption) {
-    toast('Caption text is required', 'error');
-    return;
-  }
-
-  showLoading(imageFiles.length > 0 ? '이미지 업로드 + GPT 처리 중...' : 'GPT 처리 중...');
+  const form = getCurateFormData();
+  if (!form.title) { toast('Title is required', 'error'); return; }
+  if (form.imageFiles.length === 0) { toast('At least one image is required', 'error'); return; }
+  showLoading('이미지 업로드 중...');
   try {
-    // Upload images first if provided
-    let imageUrls = [];
-    if (imageFiles.length > 0) {
-      imageUrls = await uploadFeedImages(imageFiles);
-    }
-
-    const headers = await getAuthHeaders();
-    const body = { caption_text: caption };
-    if (url) body.instagram_url = url;
-    if (notes) body.manual_notes = notes;
-    if (category) body.category = category;
-    if (imageUrls.length > 0) body.image_urls = imageUrls;
-
-    const res = await fetch(`${EDGE_BASE}/feed-curate-instagram`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail ? `${data.error}: ${data.detail}` : data.error || 'Curation failed');
-
-    toast(`Draft created: ${data.post?.title || 'New post'}`, 'success');
-    document.getElementById('curateUrl').value = '';
-    document.getElementById('curateCaption').value = '';
-    document.getElementById('curateNotes').value = '';
-    document.getElementById('curateCategory').value = '';
-    imageInput.value = '';
-    document.getElementById('imagePreview').innerHTML = '';
-
-    // Switch to draft tab to see the new post
+    const imageUrls = await uploadFeedImages(form.imageFiles);
+    const insertData = {
+      title: form.title, caption: '', overview: form.description || '', source_type: 'manual',
+      images: imageUrls, location_name: form.location || null, price: form.price || null,
+      event_start_date: form.startDate || null, event_end_date: form.endDate || null,
+      external_link: form.bookingUrl || form.infoUrl || null, category: form.category,
+      tags: [], is_published: false, publish_date: null, priority: 0,
+      is_free: form.isFree, country_code: form.countryCode, language: form.language,
+    };
+    if (form.targetConfig) insertData.target_config = form.targetConfig;
+    const { error } = await sb.from('feed_posts').insert(insertData);
+    if (error) throw new Error(error.message);
+    toast(`Draft saved: ${form.title}${form.targetConfig ? ' (기념일 타겟)' : ''}`, 'success');
+    resetCurateForm();
     const draftTab = document.querySelector('.tab[data-status="draft"]');
-    if (draftTab) switchTab(draftTab);
-    else loadPosts();
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    hideLoading();
-  }
+    if (draftTab) switchTab(draftTab); else loadPosts();
+    loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
 }
 
-// ─── Toast ───
+async function curateAndPublish() {
+  const form = getCurateFormData();
+  if (!form.title) { toast('Title is required', 'error'); return; }
+  if (form.imageFiles.length === 0) { toast('At least one image is required', 'error'); return; }
+  showLoading('이미지 업로드 + GPT 캡션 생성 중...');
+  try {
+    const imageUrls = await uploadFeedImages(form.imageFiles);
+    const insertData = {
+      title: form.title, caption: '', overview: form.description || '', source_type: 'manual',
+      images: imageUrls, location_name: form.location || null, price: form.price || null,
+      event_start_date: form.startDate || null, event_end_date: form.endDate || null,
+      external_link: form.bookingUrl || form.infoUrl || null, category: form.category,
+      tags: [], is_published: false, publish_date: null, priority: 0,
+      is_free: form.isFree, country_code: form.countryCode, language: form.language,
+    };
+    if (form.targetConfig) insertData.target_config = form.targetConfig;
+    const { data: inserted, error: insertErr } = await sb.from('feed_posts').insert(insertData).select('id').single();
+    if (insertErr) throw new Error(insertErr.message);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, {
+      method: 'POST', headers, body: JSON.stringify({ postIds: [inserted.id] }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Publish failed');
+    toast(`Published: ${form.title}${form.targetConfig ? ' (기념일 타겟)' : ''}`, 'success');
+    resetCurateForm(); loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+// ═══════════════════════════════════════
+// CARD NEWS
+// ═══════════════════════════════════════
+function renderCardNewsPreviews() {
+  const input = document.getElementById('cardNewsImages');
+  const preview = document.getElementById('cardNewsPreviewGrid');
+  const placeholder = document.getElementById('cardNewsUploadPlaceholder');
+  const files = Array.from(input.files).slice(0, 5);
+  preview.innerHTML = '';
+  if (files.length === 0) { placeholder.style.display = ''; return; }
+  placeholder.style.display = 'none';
+  files.forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const item = document.createElement('div');
+      item.className = 'preview-item';
+      item.innerHTML = `<img src="${e.target.result}" /><button class="remove-btn" onclick="removeCardNewsImage(${i})">✕</button>`;
+      preview.appendChild(item);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeCardNewsImage(index) {
+  const input = document.getElementById('cardNewsImages');
+  const dt = new DataTransfer();
+  Array.from(input.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
+  input.files = dt.files;
+  renderCardNewsPreviews();
+}
+
+function getCardNewsFormData() {
+  const countryCode = document.getElementById('cardNewsCountry').value.toUpperCase().trim();
+  return {
+    title: document.getElementById('cardNewsTitle').value.trim(),
+    description: document.getElementById('cardNewsCaption').value.trim(),
+    category: document.getElementById('cardNewsCategory').value,
+    countryCode,
+    language: COUNTRY_LANG_MAP[countryCode] || 'ko',
+    imageFiles: Array.from(document.getElementById('cardNewsImages').files).slice(0, 5),
+  };
+}
+
+function resetCardNewsForm() {
+  ['cardNewsTitle','cardNewsCaption'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cardNewsCategory').value = 'spot';
+  document.getElementById('cardNewsCountry').value = 'KR';
+  document.getElementById('cardNewsImages').value = '';
+  document.getElementById('cardNewsPreviewGrid').innerHTML = '';
+  document.getElementById('cardNewsUploadPlaceholder').style.display = '';
+}
+
+async function saveCardNewsDraft() {
+  const form = getCardNewsFormData();
+  if (!form.title) { toast('Title is required', 'error'); return; }
+  if (form.imageFiles.length === 0) { toast('At least one image is required', 'error'); return; }
+  showLoading('이미지 업로드 중...');
+  try {
+    const imageUrls = await uploadFeedImages(form.imageFiles);
+    const { error } = await sb.from('feed_posts').insert({
+      title: form.title, caption: '', overview: form.description || '', source_type: 'cardnews',
+      images: imageUrls, location_name: null, price: null,
+      event_start_date: null, event_end_date: null,
+      external_link: null, category: form.category,
+      tags: [], is_published: false, publish_date: null, priority: 0,
+      is_free: false, country_code: form.countryCode, language: form.language,
+    });
+    if (error) throw new Error(error.message);
+    toast(`Card News draft saved: ${form.title}`, 'success');
+    resetCardNewsForm();
+    const draftTab = document.querySelector('.tab[data-status="draft"]');
+    if (draftTab) switchTab(draftTab); else loadPosts();
+    loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function publishCardNews() {
+  const form = getCardNewsFormData();
+  if (!form.title) { toast('Title is required', 'error'); return; }
+  if (form.imageFiles.length === 0) { toast('At least one image is required', 'error'); return; }
+  showLoading('이미지 업로드 + GPT 캡션 생성 중...');
+  try {
+    const imageUrls = await uploadFeedImages(form.imageFiles);
+    const { data: inserted, error: insertErr } = await sb.from('feed_posts').insert({
+      title: form.title, caption: '', overview: form.description || '', source_type: 'cardnews',
+      images: imageUrls, location_name: null, price: null,
+      event_start_date: null, event_end_date: null,
+      external_link: null, category: form.category,
+      tags: [], is_published: false, publish_date: null, priority: 0,
+      is_free: false, country_code: form.countryCode, language: form.language,
+    }).select('id').single();
+    if (insertErr) throw new Error(insertErr.message);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, {
+      method: 'POST', headers, body: JSON.stringify({ postIds: [inserted.id] }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Publish failed');
+    toast(`Card News published: ${form.title}`, 'success');
+    resetCardNewsForm(); loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+// ─── Toast / Loading ───
 function toast(msg, type = 'info') {
-  const container = document.getElementById('toastContainer');
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
   el.textContent = msg;
-  container.appendChild(el);
+  document.getElementById('toastContainer').appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }
+function showLoading(text) { document.getElementById('loadingText').textContent = text || 'Processing...'; document.getElementById('loadingOverlay').classList.add('show'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
 
-// ─── Loading ───
-function showLoading(text) {
-  document.getElementById('loadingText').textContent = text || 'Processing...';
-  document.getElementById('loadingOverlay').classList.add('show');
-}
-function hideLoading() {
-  document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-// ─── Close modals on overlay click ───
+// ─── Close modals ───
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      overlay.classList.remove('show');
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+});
+
+// ─── Collapsible Panels ───
+function togglePanel(panelId) { document.getElementById(panelId).classList.toggle('collapsed'); }
+
+// ─── Dynamic Country Filter ───
+const CORE_COUNTRIES = ['KR', 'US', 'JP', 'TW', 'ES'];
+async function refreshCountryFilter() {
+  try {
+    const { data } = await sb.from('feed_posts').select('country_code').not('country_code', 'is', null);
+    if (!data) return;
+    const countryCodes = [...new Set(data.map(d => d.country_code))].filter(Boolean);
+    const extraCountries = countryCodes.filter(c => !CORE_COUNTRIES.includes(c)).sort();
+    const bar = document.getElementById('countryFilterBar');
+    bar.querySelectorAll('.country-btn-dynamic').forEach(b => b.remove());
+    for (const code of extraCountries) {
+      const btn = document.createElement('button');
+      btn.className = 'country-btn country-btn-dynamic';
+      btn.dataset.country = code;
+      btn.onclick = function() { switchCountry(this); };
+      btn.textContent = `${countryFlag(code)} ${code}`;
+      bar.appendChild(btn);
+    }
+  } catch {}
+}
+
+// ─── Image Events ───
+document.getElementById('curateImages').addEventListener('change', renderImagePreviews);
+const dropZone = document.getElementById('imageDropZone');
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const input = document.getElementById('curateImages');
+  const dt = new DataTransfer();
+  const existing = Array.from(input.files);
+  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  [...existing, ...dropped].slice(0, 5).forEach(f => dt.items.add(f));
+  input.files = dt.files;
+  renderImagePreviews();
+});
+
+// ─── Card News Image Events ───
+document.getElementById('cardNewsImages').addEventListener('change', renderCardNewsPreviews);
+const cnDropZone = document.getElementById('cardNewsDropZone');
+cnDropZone.addEventListener('dragover', (e) => { e.preventDefault(); cnDropZone.classList.add('dragover'); });
+cnDropZone.addEventListener('dragleave', () => { cnDropZone.classList.remove('dragover'); });
+cnDropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); cnDropZone.classList.remove('dragover');
+  const input = document.getElementById('cardNewsImages');
+  const dt = new DataTransfer();
+  const existing = Array.from(input.files);
+  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  [...existing, ...dropped].slice(0, 5).forEach(f => dt.items.add(f));
+  input.files = dt.files;
+  renderCardNewsPreviews();
+});
+
+// ═══════════════════════════════════════
+// TOP MANAGEMENT SECTION
+// ═══════════════════════════════════════
+const TOP_SECTIONS = {
+  show_festival: { label: '공연·축제·방청', categories: ['show', 'festival', 'tv_audience'] },
+  exhibition_popup: { label: '전시·팝업', categories: ['popup', 'experience'] },
+  activity: { label: '액티비티', categories: ['activity'] },
+  sports: { label: '운동·스포츠', categories: ['sports'] },
+};
+
+let currentTopSection = 'show_festival';
+let topPosts = [];
+
+function switchTopSection(el) {
+  document.querySelectorAll('#topSectionTabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentTopSection = el.dataset.topSection;
+  loadTopSection();
+}
+
+async function loadTopSection() {
+  const config = TOP_SECTIONS[currentTopSection];
+  if (!config) return;
+  document.getElementById('topSectionLabel').textContent = config.label;
+
+  try {
+    // Fetch published posts for these categories (KR only)
+    const allResults = [];
+    for (const cat of config.categories) {
+      const result = await callAdmin('list', 'GET', { status: 'published', limit: '50', offset: '0', country_code: 'KR', category: cat });
+      if (result.data) allResults.push(...result.data);
+    }
+    topPosts = allResults.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    renderTopSection();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function renderTopSection() {
+  // Current Top 5 (priority > 0, sorted desc)
+  const topItems = topPosts.filter(p => (p.priority || 0) > 0).sort((a, b) => (b.priority || 0) - (a.priority || 0)).slice(0, 5);
+  const listEl = document.getElementById('topCurrentList');
+
+  if (topItems.length === 0) {
+    listEl.innerHTML = '<p class="top-empty">Top 5가 아직 설정되지 않았습니다. 아래 포스트에서 Priority를 설정하세요.</p>';
+  } else {
+    listEl.innerHTML = topItems.map((p, i) => `
+      <div class="top-rank-item">
+        <span class="top-rank-badge">TOP ${i + 1}</span>
+        ${p.images?.[0] ? `<img src="${p.images[0]}" style="width:48px;height:48px;border-radius:6px;object-fit:cover" />` : ''}
+        <div style="flex:1;min-width:0">
+          <div class="top-rank-title">${esc(p.title)}</div>
+          <span class="top-rank-category">${p.category}</span>
+        </div>
+        <div class="top-rank-priority">
+          P: <input type="number" value="${p.priority || 0}" min="0" max="99"
+            onchange="updateTopPriority('${p.id}', this.value)" />
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="updateTopPriority('${p.id}', 0)" title="Top에서 제거">✕</button>
+      </div>
+    `).join('');
+  }
+
+  // Available posts grid
+  const available = topPosts;
+  document.getElementById('topAvailableCount').textContent = `${available.length} posts`;
+  const grid = document.getElementById('topPostGrid');
+  if (available.length === 0) {
+    grid.innerHTML = '<p style="color:var(--text-sub);text-align:center;padding:40px;grid-column:1/-1">Published 포스트가 없습니다</p>';
+    return;
+  }
+
+  grid.innerHTML = available.map(p => {
+    const images = p.images || [];
+    const firstImg = images[0];
+    const dateStr = p.event_start_date ? formatDate(p.event_start_date) : '';
+    const endStr = p.event_end_date ? ` ~ ${formatDate(p.event_end_date)}` : '';
+    const isTop = (p.priority || 0) > 0;
+    return `
+      <div class="post-card" data-id="${p.id}" style="${isTop ? 'border-color:#FF4B6E' : ''}">
+        <div class="post-card-img-wrap">
+          ${firstImg
+            ? `<img class="post-card-img" src="${firstImg}" alt="${esc(p.title)}" onerror="this.parentElement.innerHTML='<div class=no-img>Image unavailable</div>'" />`
+            : `<div class="no-img">No image</div>`}
+          ${isTop ? `<span style="position:absolute;top:8px;right:8px;background:rgba(255,75,110,0.9);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700">TOP</span>` : ''}
+        </div>
+        <div class="post-card-body">
+          <div class="post-card-title" title="${esc(p.title)}">${esc(p.title)}</div>
+          <div class="post-card-meta">
+            <span class="badge badge-cat">${p.category || '-'}</span>
+            ${p.is_free ? `<span class="badge" style="background:rgba(52,211,153,0.15);color:var(--green)">FREE</span>` : ''}
+            ${dateStr ? `<span class="badge">${dateStr}${endStr}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+            <label style="font-size:12px;color:var(--text-sub)">Priority:</label>
+            <input type="number" value="${p.priority || 0}" min="0" max="99"
+              style="width:60px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;text-align:center"
+              onchange="updateTopPriority('${p.id}', this.value)" />
+            ${!isTop ? `<button class="btn btn-sm" style="background:#FF4B6E;color:#fff" onclick="setAsTop('${p.id}')">Top 추가</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function updateTopPriority(id, value) {
+  const priority = parseInt(value) || 0;
+  try {
+    await callAdmin('update', 'POST', { id, priority });
+    toast(`Priority updated to ${priority}`, 'success');
+    loadTopSection();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function setAsTop(id) {
+  // Find the next available priority (highest + 1)
+  const topItems = topPosts.filter(p => (p.priority || 0) > 0);
+  const maxPriority = topItems.length > 0 ? Math.max(...topItems.map(p => p.priority || 0)) : 0;
+  const newPriority = maxPriority + 1;
+
+  if (topItems.length >= 5) {
+    if (!confirm('이미 Top 5가 모두 채워져 있습니다. 추가하면 6개 이상이 됩니다. 계속하시겠습니까?')) return;
+  }
+
+  try {
+    await callAdmin('update', 'POST', { id, priority: newPriority });
+    toast(`Top에 추가되었습니다 (Priority: ${newPriority})`, 'success');
+    loadTopSection();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════
+// INSTAGRAM FEED
+// ═══════════════════════════════════════
+function renderInstagramPreviews() {
+  const input = document.getElementById('igImages');
+  const preview = document.getElementById('igPreviewGrid');
+  const placeholder = document.getElementById('igUploadPlaceholder');
+  const files = Array.from(input.files).slice(0, 5);
+  preview.innerHTML = '';
+  if (files.length === 0) { placeholder.style.display = ''; return; }
+  placeholder.style.display = 'none';
+  files.forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const item = document.createElement('div');
+      item.className = 'preview-item';
+      item.innerHTML = `<img src="${e.target.result}" /><button class="remove-btn" onclick="removeInstagramImage(${i})">✕</button>`;
+      preview.appendChild(item);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeInstagramImage(index) {
+  const input = document.getElementById('igImages');
+  const dt = new DataTransfer();
+  Array.from(input.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
+  input.files = dt.files;
+  renderInstagramPreviews();
+}
+
+function getInstagramFormData() {
+  const countryCode = document.getElementById('igCountry').value.toUpperCase().trim();
+  return {
+    instagramUrl: document.getElementById('igUrl').value.trim(),
+    title: document.getElementById('igTitle').value.trim(),
+    description: document.getElementById('igCaption').value.trim(),
+    location: document.getElementById('igLocation').value.trim(),
+    price: document.getElementById('igPrice').value.trim(),
+    startDate: document.getElementById('igStartDate').value,
+    endDate: document.getElementById('igEndDate').value,
+    isFree: document.getElementById('igIsFree').checked,
+    category: document.getElementById('igCategory').value,
+    countryCode,
+    language: COUNTRY_LANG_MAP[countryCode] || 'ko',
+    imageFiles: Array.from(document.getElementById('igImages').files).slice(0, 5),
+  };
+}
+
+function resetInstagramForm() {
+  ['igUrl','igTitle','igCaption','igLocation','igPrice','igStartDate','igEndDate'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('igIsFree').checked = true;
+  document.getElementById('igCategory').value = 'popup';
+  document.getElementById('igCountry').value = 'KR';
+  document.getElementById('igImages').value = '';
+  document.getElementById('igPreviewGrid').innerHTML = '';
+  document.getElementById('igUploadPlaceholder').style.display = '';
+}
+
+async function saveInstagramDraft() {
+  const form = getInstagramFormData();
+  if (!form.instagramUrl) { toast('Instagram URL is required', 'error'); return; }
+  if (!form.title) { toast('Title is required', 'error'); return; }
+  if (form.imageFiles.length === 0) { toast('At least one thumbnail image is required', 'error'); return; }
+  showLoading('이미지 업로드 중...');
+  try {
+    const imageUrls = await uploadFeedImages(form.imageFiles);
+    const { error } = await sb.from('feed_posts').insert({
+      title: form.title, caption: '', overview: form.description || '', source_type: 'instagram',
+      images: imageUrls, location_name: form.location || null, price: form.price || null,
+      event_start_date: form.startDate || null, event_end_date: form.endDate || null,
+      external_link: form.instagramUrl, category: form.category,
+      tags: [], is_published: false, publish_date: null, priority: 0,
+      is_free: form.isFree, country_code: form.countryCode, language: form.language,
+    });
+    if (error) throw new Error(error.message);
+    toast(`Instagram draft saved: ${form.title}`, 'success');
+    resetInstagramForm();
+    const draftTab = document.querySelector('.tab[data-status="draft"]');
+    if (draftTab) switchTab(draftTab); else loadPosts();
+    loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function publishInstagram() {
+  const form = getInstagramFormData();
+  if (!form.instagramUrl) { toast('Instagram URL is required', 'error'); return; }
+  if (!form.title) { toast('Title is required', 'error'); return; }
+  if (form.imageFiles.length === 0) { toast('At least one thumbnail image is required', 'error'); return; }
+  showLoading('이미지 업로드 + GPT 캡션 생성 중...');
+  try {
+    const imageUrls = await uploadFeedImages(form.imageFiles);
+    const { data: inserted, error: insertErr } = await sb.from('feed_posts').insert({
+      title: form.title, caption: '', overview: form.description || '', source_type: 'instagram',
+      images: imageUrls, location_name: form.location || null, price: form.price || null,
+      event_start_date: form.startDate || null, event_end_date: form.endDate || null,
+      external_link: form.instagramUrl, category: form.category,
+      tags: [], is_published: false, publish_date: null, priority: 0,
+      is_free: form.isFree, country_code: form.countryCode, language: form.language,
+    }).select('id').single();
+    if (insertErr) throw new Error(insertErr.message);
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, {
+      method: 'POST', headers, body: JSON.stringify({ postIds: [inserted.id] }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Publish failed');
+    toast(`Instagram published: ${form.title}`, 'success');
+    resetInstagramForm(); loadPosts(); loadDashboardData();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+// ─── Instagram Image Events ───
+document.getElementById('igImages').addEventListener('change', renderInstagramPreviews);
+const igDropZone = document.getElementById('igDropZone');
+igDropZone.addEventListener('dragover', (e) => { e.preventDefault(); igDropZone.classList.add('dragover'); });
+igDropZone.addEventListener('dragleave', () => { igDropZone.classList.remove('dragover'); });
+igDropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); igDropZone.classList.remove('dragover');
+  const input = document.getElementById('igImages');
+  const dt = new DataTransfer();
+  const existing = Array.from(input.files);
+  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  [...existing, ...dropped].slice(0, 5).forEach(f => dt.items.add(f));
+  input.files = dt.files;
+  renderInstagramPreviews();
+});
+
+// ─── Bot Feed (feed_events) ───
+let botFeedData = [];
+let botFeedCategory = 'all';
+
+const BOT_CAT_LABELS = {
+  popup: '🛍️ 팝업스토어', market: '🛒 플리마켓', movie_special: '🎬 특별상영',
+  sports: '🏟️ 스포츠', concert: '🎵 공연', exhibition: '🎨 전시',
+  festival: '🎪 축제', musical: '🎭 뮤지컬', tv_audience: '📺 TV 방청',
+};
+
+const BOT_REGION_LABELS = {
+  seoul: '서울', gyeonggi: '경기', incheon: '인천', daejeon: '대전',
+  busan: '부산', daegu: '대구', gwangju: '광주', gangwon: '강원',
+  jeju: '제주', jeonbuk: '전북', gyeongbuk: '경북', gyeongnam: '경남',
+  ulsan: '울산', other: '기타',
+};
+
+function switchBotFeedTab(el) {
+  document.querySelectorAll('#botFeedTabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  botFeedCategory = el.dataset.cat;
+  renderBotFeedGrid();
+}
+
+async function loadBotFeed() {
+  try {
+    let query = sb.from('feed_events').select('*').eq('is_active', true).order('start_date', { ascending: true });
+
+    const verifyFilter = document.getElementById('botFeedVerifyFilter')?.value;
+    if (verifyFilter === 'unverified') query = query.eq('is_verified', false);
+    if (verifyFilter === 'verified') query = query.eq('is_verified', true);
+
+    const regionFilter = document.getElementById('botFeedRegionFilter')?.value;
+    if (regionFilter && regionFilter !== 'all') query = query.eq('region', regionFilter);
+
+    const { data, error } = await query;
+    if (error) { toast('봇 피드 로드 실패: ' + error.message, 'error'); return; }
+    botFeedData = data || [];
+    renderBotFeedStats();
+    renderBotFeedGrid();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderBotFeedStats() {
+  const stats = {};
+  let unverified = 0;
+  botFeedData.forEach(ev => {
+    stats[ev.category] = (stats[ev.category] || 0) + 1;
+    if (!ev.is_verified) unverified++;
+  });
+  const el = document.getElementById('botFeedStats');
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-card-label">전체</div>
+      <div class="stat-card-value">${botFeedData.length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">미검증</div>
+      <div class="stat-card-value" style="color:var(--orange)">${unverified}</div>
+    </div>
+    ${Object.entries(stats).map(([cat, cnt]) => `
+      <div class="stat-card" style="cursor:pointer" onclick="document.querySelector('#botFeedTabs .tab[data-cat=${cat}]')?.click()">
+        <div class="stat-card-label">${BOT_CAT_LABELS[cat] || cat}</div>
+        <div class="stat-card-value">${cnt}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderBotFeedGrid() {
+  const filtered = botFeedCategory === 'all' ? botFeedData : botFeedData.filter(ev => ev.category === botFeedCategory);
+  document.getElementById('botFeedCount').textContent = filtered.length + '건';
+
+  const el = document.getElementById('botFeedGrid');
+  if (filtered.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text-sub);padding:40px">데이터 없음</div>';
+    return;
+  }
+
+  el.innerHTML = filtered.map(ev => {
+    const catLabel = BOT_CAT_LABELS[ev.category] || ev.category;
+    const regionLabel = BOT_REGION_LABELS[ev.region] || ev.region || '-';
+    const verifiedBadge = ev.is_verified
+      ? '<span class="badge badge-published">검증됨</span>'
+      : '<span class="badge badge-draft">미검증</span>';
+    const highlightBadge = ev.is_highlight ? '<span class="badge" style="background:rgba(251,191,36,0.15);color:var(--orange)">🌟 하이라이트</span>' : '';
+    const tags = (ev.tags || []).map(t => `<span class="badge">${t}</span>`).join('');
+    const dateStr = ev.start_date === ev.end_date || !ev.end_date
+      ? ev.start_date
+      : ev.start_date + ' ~ ' + ev.end_date;
+    const timeStr = ev.start_time ? ' ' + ev.start_time : '';
+    const priceStr = ev.is_free ? '무료' : (ev.price_info || '-');
+
+    const allImgs = ev.images && ev.images.length > 0 ? ev.images : (ev.image_url ? [ev.image_url] : []);
+    const imgSrc = allImgs[0] || '';
+    const imgCount = allImgs.length;
+
+    return `
+    <div class="post-card" id="bot-card-${ev.id}">
+      ${imgSrc ? `<div style="position:relative;width:100%;height:160px;overflow:hidden;border-radius:var(--radius) var(--radius) 0 0;background:var(--surface2)"><img src="${imgSrc}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'" />${imgCount > 1 ? `<span style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px">📷 ${imgCount}</span>` : ''}</div>` : ''}
+      <div class="post-card-body">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="font-size:20px">${ev.emoji || '🎪'}</span>
+          <span class="badge badge-cat">${catLabel}</span>
+          ${verifiedBadge}
+          ${highlightBadge}
+        </div>
+        <div class="post-card-title">${ev.title}</div>
+        <div class="post-card-caption">${ev.description || ''}</div>
+        <div class="post-card-meta">
+          <span class="badge">📍 ${ev.venue_name || '-'}</span>
+          <span class="badge">📌 ${regionLabel}</span>
+        </div>
+        <div class="post-card-meta">
+          <span class="badge">📅 ${dateStr}${timeStr}</span>
+          <span class="badge">💰 ${priceStr}</span>
+          ${tags}
+        </div>
+        ${ev.source_url ? '<a href="' + ev.source_url + '" target="_blank" style="display:block;padding:8px 12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;color:var(--blue);font-size:13px;font-weight:500;margin-bottom:8px;text-decoration:none;word-break:break-all">🔗 원본 글 보기 ↗<br><span style="font-size:11px;color:var(--text-sub);font-weight:400">' + ev.source_url + '</span></a>' : '<div style="padding:8px 12px;background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.3);border-radius:8px;color:#e6a700;font-size:12px;margin-bottom:8px">⚠️ 원본 링크 없음 — 봇 재수집 시 자동 추가됩니다</div>'}
+        <div style="font-size:11px;color:var(--text-sub);margin-bottom:10px">
+          출처: ${ev.source} · ${ev.created_at ? new Date(ev.created_at).toLocaleDateString('ko') : '-'}
+          ${ev.booking_url ? ' · <a href="' + ev.booking_url + '" target="_blank" style="color:var(--blue)">예매↗</a>' : ''}
+        </div>
+        <div style="margin-bottom:10px">
+          <input type="text" id="bot-link-${ev.id}" value="${ev.booking_url || ''}"
+            placeholder="대표 링크 (예: 공식 페이지, 예매 URL)"
+            style="width:100%;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none" />
+        </div>
+        <div class="post-card-actions">
+          ${!ev.is_verified ? `<button class="btn btn-green btn-sm" onclick="verifyBotEvent('${ev.id}')">✅ 승인</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="openBotEventModal('${ev.id}')">📋 상세/수정</button>
+          <button class="btn btn-red btn-sm" onclick="deactivateBotEvent('${ev.id}')">🗑 삭제</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// feed_events → feed_posts 카테고리 매핑
+const BOT_TO_FEED_CATEGORY = {
+  popup: 'popup', market: 'festival', movie_special: 'show',
+  sports: 'sports', concert: 'show', exhibition: 'exhibition',
+  festival: 'festival', musical: 'show', tv_audience: 'tv_audience',
+};
+
+function botEventToFeedPost(ev) {
+  return {
+    title: ev.title,
+    caption: '',
+    source_type: ev.source || 'naver_blog',
+    source_id: ev.source_id,
+    images: ev.images && ev.images.length > 0 ? ev.images.map(u => u.replace('http://', 'https://')) : (ev.image_url ? [ev.image_url.replace('http://', 'https://')] : []),
+    category: BOT_TO_FEED_CATEGORY[ev.category] || ev.category,
+    tags: ev.tags || [],
+    location_name: ev.venue_name || null,
+    latitude: ev.latitude || null,
+    longitude: ev.longitude || null,
+    region: ev.region || null,
+    event_start_date: ev.start_date,
+    event_end_date: ev.end_date || ev.start_date,
+    start_time: ev.start_time || null,
+    price: ev.price_info || null,
+    is_free: ev.is_free || false,
+    external_link: ev.booking_url || null,
+    booking_source: ev.booking_source || null,
+    emoji: ev.emoji || '🎪',
+    priority: ev.priority || 30,
+    is_published: false,
+    publish_date: null,
+    country_code: 'KR',
+    language: 'ko',
+    save_count: 0,
+    is_highlight: false,
+    overview: ev.description || null,
+  };
+}
+
+async function verifyBotEvent(id) {
+  const ev = botFeedData.find(e => e.id === id);
+  if (!ev) return;
+
+  // 입력된 대표 링크 읽기
+  const linkInput = document.getElementById('bot-link-' + id);
+  const linkUrl = linkInput ? linkInput.value.trim() : '';
+
+  showLoading('승인 + GPT 캡션 생성 중...');
+  try {
+    // 1. feed_events 승인 + 링크 저장
+    const updateData = { is_verified: true };
+    if (linkUrl) updateData.booking_url = linkUrl;
+    const { error: verifyErr } = await sb.from('feed_events').update(updateData).eq('id', id);
+    if (verifyErr) { toast('승인 실패: ' + verifyErr.message, 'error'); return; }
+
+    // 2. feed_posts에 draft로 저장
+    if (linkUrl) ev.booking_url = linkUrl;
+    const feedPost = botEventToFeedPost(ev);
+    const { data: upserted, error: insertErr } = await sb.from('feed_posts').upsert(feedPost, { onConflict: 'source_id' }).select('id').single();
+    if (insertErr) { toast('피드 저장 실패: ' + insertErr.message, 'error'); return; }
+
+    // 3. GPT 캡션 생성 + publish
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, { method: 'POST', headers, body: JSON.stringify({ postIds: [upserted.id] }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'GPT 캡션 생성 실패');
+
+    toast('승인 + GPT 캡션 생성 + 게시 완료', 'success');
+    loadBotFeed();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function deactivateBotEvent(id) {
+  if (!confirm('이 이벤트를 삭제합니까? (복구 불가)')) return;
+  const ev = botFeedData.find(e => e.id === id);
+
+  // 삭제 기록 (재수집 방지)
+  if (ev?.source_id) {
+    await sb.from('feed_deleted_sources').upsert({
+      source_id: ev.source_id,
+      source_type: ev.source_type || null,
+      title: ev.title || null,
+      event_end_date: ev.event_end_date || ev.end_date || null,
+    }, { onConflict: 'source_id' });
+    // feed_posts에서도 삭제 (source_id로 매칭)
+    await sb.from('feed_posts').delete().eq('source_id', ev.source_id);
+  }
+
+  // feed_events에서 삭제
+  const { error } = await sb.from('feed_events').delete().eq('id', id);
+  if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
+  toast('삭제 완료', 'success');
+  loadBotFeed();
+}
+
+async function deleteAllBotFeed() {
+  if (botFeedData.length === 0) { toast('삭제할 항목 없음', 'info'); return; }
+  if (!confirm(`봇 피드 ${botFeedData.length}건을 모두 삭제합니까? (복구 불가)`)) return;
+  if (!confirm('정말 전체 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+  try {
+    const ids = botFeedData.map(ev => ev.id);
+    const sourceIds = botFeedData.map(ev => ev.source_id).filter(Boolean);
+
+    // 삭제 기록 (재수집 방지)
+    if (sourceIds.length > 0) {
+      const deleteRecords = botFeedData.filter(ev => ev.source_id).map(ev => ({
+        source_id: ev.source_id,
+        source_type: ev.source_type || null,
+        title: ev.title || null,
+        event_end_date: ev.event_end_date || ev.end_date || null,
+      }));
+      await sb.from('feed_deleted_sources').upsert(deleteRecords, { onConflict: 'source_id' });
+      // feed_posts에서 연결된 게시물 삭제
+      await sb.from('feed_posts').delete().in('source_id', sourceIds);
+    }
+
+    // feed_events 전체 삭제
+    const { error } = await sb.from('feed_events').delete().in('id', ids);
+    if (error) { toast('전체 삭제 실패: ' + error.message, 'error'); return; }
+
+    toast(`${ids.length}건 전체 삭제 완료`, 'success');
+    loadBotFeed();
+  } catch (e) { toast('전체 삭제 오류: ' + e.message, 'error'); }
+}
+
+async function bulkVerifyBotFeed() {
+  const unverified = botFeedData.filter(ev => !ev.is_verified);
+  if (unverified.length === 0) { toast('미검증 항목 없음', 'info'); return; }
+  if (!confirm(`미검증 ${unverified.length}건을 모두 승인 + GPT 캡션 생성 + 피드 게시합니까?`)) return;
+
+  showLoading(`${unverified.length}건 승인 + GPT 캡션 생성 중... (시간이 걸릴 수 있습니다)`);
+  try {
+    // 1. feed_events 전체 승인
+    const evIds = unverified.map(ev => ev.id);
+    await sb.from('feed_events').update({ is_verified: true }).in('id', evIds);
+
+    // 2. feed_posts에 draft로 저장
+    const postIds = [];
+    for (const ev of unverified) {
+      const feedPost = botEventToFeedPost(ev);
+      const { data: upserted, error } = await sb.from('feed_posts').upsert(feedPost, { onConflict: 'source_id' }).select('id').single();
+      if (!error && upserted) postIds.push(upserted.id);
+    }
+
+    // 3. GPT 캡션 생성 + publish (한번에)
+    if (postIds.length > 0) {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${EDGE_BASE}/feed-publish-posts`, { method: 'POST', headers, body: JSON.stringify({ postIds }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'GPT 캡션 생성 실패');
+      toast(`${data.published || 0}건 승인 + GPT 캡션 생성 + 게시 완료`, 'success');
+    } else {
+      toast('저장된 항목 없음', 'info');
+    }
+
+    loadBotFeed();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function runBot3() {
+  if (!confirm('봇3 (팝업/플리마켓/특별상영) 수동 실행?')) return;
+  const btn = document.getElementById('btnRunBot3');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> 실행중...'; }
+  toast('봇3 실행 중... (1~2분 소요)', 'info');
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/batch-collect-trending`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast(`봇3 완료: ${data.saved}건 저장, ${data.skipped}건 스킵`, 'success');
+      loadBotFeed();
+    } else { toast('봇3 실패', 'error'); }
+  } catch (e) { toast('봇3 오류: ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '🤖 봇3'; } }
+}
+
+async function runBot4() {
+  if (!confirm('봇4 (스포츠) 수동 실행?')) return;
+  const btn = document.getElementById('btnRunBot4');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> 실행중...'; }
+  toast('봇4 실행 중... (1~2분 소요)', 'info');
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/batch-collect-sports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast(`봇4 완료: ${data.saved}건 저장, ${data.skipped}건 스킵`, 'success');
+      loadBotFeed();
+    } else { toast('봇4 실패', 'error'); }
+  } catch (e) { toast('봇4 오류: ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '🏟️ 봇4'; } }
+}
+
+function openBotEventModal(id) {
+  const ev = botFeedData.find(e => e.id === id);
+  if (!ev) return;
+  beNewFiles = [];
+
+  const catLabel = BOT_CAT_LABELS[ev.category] || ev.category;
+  const regionLabel = BOT_REGION_LABELS[ev.region] || ev.region || '-';
+  const dateStr = ev.start_date === ev.end_date || !ev.end_date
+    ? ev.start_date || '-'
+    : (ev.start_date || '-') + ' ~ ' + (ev.end_date || '-');
+  const timeStr = ev.start_time || '-';
+  const priceStr = ev.is_free ? '무료' : (ev.price_info || '-');
+
+  const catOptions = Object.entries(BOT_CAT_LABELS).map(([k,v]) =>
+    `<option value="${k}" ${ev.category === k ? 'selected' : ''}>${v}</option>`
+  ).join('');
+  const regionOptions = Object.entries(BOT_REGION_LABELS).map(([k,v]) =>
+    `<option value="${k}" ${ev.region === k ? 'selected' : ''}>${v}</option>`
+  ).join('');
+
+  const html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="margin:0;font-size:18px">📋 이벤트 상세</h2>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('botEventModal').classList.remove('show')" style="font-size:18px;padding:4px 10px">✕</button>
+    </div>
+
+    ${(() => {
+      const imgs = ev.images && ev.images.length > 0 ? ev.images : (ev.image_url ? [ev.image_url] : []);
+      if (imgs.length === 0) return '';
+      return `<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px">
+        ${imgs.map(url => `<img src="${url}" style="width:140px;height:187px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border);flex-shrink:0" onerror="this.style.display='none'" />`).join('')}
+      </div>`;
+    })()}
+
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+      <span style="font-size:22px">${ev.emoji || '🎪'}</span>
+      <span class="badge badge-cat">${catLabel}</span>
+      ${ev.is_verified ? '<span class="badge badge-published">검증됨</span>' : '<span class="badge badge-draft">미검증</span>'}
+      ${ev.is_highlight ? '<span class="badge" style="background:rgba(251,191,36,0.15);color:var(--orange)">🌟 하이라이트</span>' : ''}
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500;width:90px;white-space:nowrap">📅 일정</td>
+        <td style="padding:10px 12px">${dateStr} ${timeStr !== '-' ? '· ' + timeStr : ''}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500">📍 장소</td>
+        <td style="padding:10px 12px">${ev.venue_name || '-'}${ev.address ? ' · ' + ev.address : ''}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500">📌 지역</td>
+        <td style="padding:10px 12px">${regionLabel}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500">💰 가격</td>
+        <td style="padding:10px 12px">${priceStr}</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500">📡 출처</td>
+        <td style="padding:10px 12px">${ev.source || '-'} ${ev.source_url ? '· <a href="' + ev.source_url + '" target="_blank" style="color:var(--blue)">원본 ↗</a>' : ''}</td>
+      </tr>
+      ${ev.booking_url ? `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500">🎫 예매</td>
+        <td style="padding:10px 12px"><a href="${ev.booking_url}" target="_blank" style="color:var(--blue);word-break:break-all">${ev.booking_url}</a></td>
+      </tr>` : ''}
+      ${(ev.tags || []).length > 0 ? `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 12px;color:var(--text-sub);font-weight:500">🏷️ 태그</td>
+        <td style="padding:10px 12px">${ev.tags.map(t => '<span class="badge">' + t + '</span>').join(' ')}</td>
+      </tr>` : ''}
+    </table>
+
+    ${ev.description ? `<div style="padding:12px;background:var(--surface2);border-radius:var(--radius);margin-bottom:20px;font-size:14px;line-height:1.6;color:var(--text-sub)">${ev.description}</div>` : ''}
+
+    <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:8px">
+      <h3 style="font-size:15px;margin:0 0 14px 0">✏️ 정보 수정</h3>
+    </div>
+
+    <div class="form-group">
+      <label>제목</label>
+      <input type="text" id="beTitle" value="${(ev.title || '').replace(/"/g, '&quot;')}" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>카테고리</label>
+        <select id="beCategory">${catOptions}</select>
+      </div>
+      <div class="form-group">
+        <label>지역</label>
+        <select id="beRegion">${regionOptions}</select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>장소</label>
+      <input type="text" id="beVenue" value="${(ev.venue_name || '').replace(/"/g, '&quot;')}" />
+    </div>
+    <div class="form-group">
+      <label>설명</label>
+      <textarea id="beDesc" rows="3">${ev.description || ''}</textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>시작일</label>
+        <input type="date" id="beStartDate" value="${ev.start_date || ''}" />
+      </div>
+      <div class="form-group">
+        <label>종료일</label>
+        <input type="date" id="beEndDate" value="${ev.end_date || ''}" />
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>시간</label>
+        <input type="text" id="beTime" value="${ev.start_time || ''}" placeholder="예: 19:00" />
+      </div>
+      <div class="form-group">
+        <label>가격 정보</label>
+        <input type="text" id="bePrice" value="${(ev.price_info || '').replace(/"/g, '&quot;')}" placeholder="무료 / 10,000원 등" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>이미지 (여러 장 가능)</label>
+      <div id="beImagesGrid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        ${(() => {
+          const imgs = ev.images && ev.images.length > 0 ? ev.images : (ev.image_url ? [ev.image_url] : []);
+          return imgs.map((url, idx) => `
+            <div class="be-img-item" data-url="${url}" style="position:relative;width:120px;height:160px;flex-shrink:0">
+              <img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border)" onerror="this.parentElement.style.display='none'" />
+              <button type="button" onclick="removeBotEventImage(this)" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button>
+              <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:2px 6px;border-radius:10px">${idx + 1}</span>
+            </div>`).join('');
+        })()}
+      </div>
+      <input type="file" id="beImageFiles" accept="image/*" multiple style="display:none" onchange="addBotEventImages(this)" />
+      <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('beImageFiles').click()" style="width:100%">📷 이미지 추가</button>
+    </div>
+    <div class="form-group">
+      <label>예매/링크 URL</label>
+      <input type="url" id="beBooking" value="${ev.booking_url || ''}" />
+    </div>
+    <div class="form-group">
+      <label>태그 (쉼표 구분)</label>
+      <input type="text" id="beTags" value="${(ev.tags || []).join(', ')}" />
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="beIsFree" ${ev.is_free ? 'checked' : ''} style="accent-color:var(--accent);width:18px;height:18px" />
+        무료 이벤트
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:16px">
+        <input type="checkbox" id="beHighlight" ${ev.is_highlight ? 'checked' : ''} style="accent-color:var(--orange);width:18px;height:18px" />
+        🌟 하이라이트
+      </label>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="document.getElementById('botEventModal').classList.remove('show')">닫기</button>
+      <button class="btn btn-primary" onclick="saveBotEventEdit('${ev.id}')">💾 저장</button>
+    </div>
+  `;
+
+  document.getElementById('botEventModalContent').innerHTML = html;
+  document.getElementById('botEventModal').classList.add('show');
+}
+
+// --- Multi-image management for bot event modal ---
+let beNewFiles = []; // staged File objects to upload on save
+
+function addBotEventImages(input) {
+  const grid = document.getElementById('beImagesGrid');
+  for (const file of input.files) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const idx = grid.querySelectorAll('.be-img-item').length;
+      const div = document.createElement('div');
+      div.className = 'be-img-item';
+      div.dataset.newFileIdx = String(beNewFiles.length);
+      div.style.cssText = 'position:relative;width:120px;height:160px;flex-shrink:0';
+      div.innerHTML = `
+        <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border)" />
+        <button type="button" onclick="removeBotEventImage(this)" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button>
+        <span style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:2px 6px;border-radius:10px">NEW</span>`;
+      grid.appendChild(div);
+      beNewFiles.push(file);
+      reindexBotEventImages();
+    };
+    reader.readAsDataURL(file);
+  }
+  input.value = '';
+}
+
+function removeBotEventImage(btn) {
+  const item = btn.closest('.be-img-item');
+  if (item.dataset.newFileIdx !== undefined && item.dataset.newFileIdx !== '') {
+    beNewFiles[parseInt(item.dataset.newFileIdx)] = null;
+  }
+  item.remove();
+  reindexBotEventImages();
+}
+
+function reindexBotEventImages() {
+  const items = document.querySelectorAll('#beImagesGrid .be-img-item');
+  items.forEach((item, i) => {
+    const badge = item.querySelector('span');
+    if (badge) badge.textContent = item.dataset.newFileIdx !== undefined && item.dataset.newFileIdx !== '' ? 'NEW' : String(i + 1);
+  });
+}
+
+function collectBotEventImageState() {
+  const items = document.querySelectorAll('#beImagesGrid .be-img-item');
+  const existingUrls = [];
+  const newFileIndices = [];
+  items.forEach(item => {
+    if (item.dataset.url) {
+      existingUrls.push(item.dataset.url);
+    } else if (item.dataset.newFileIdx !== undefined && item.dataset.newFileIdx !== '') {
+      const idx = parseInt(item.dataset.newFileIdx);
+      if (beNewFiles[idx]) newFileIndices.push(idx);
     }
   });
-});
+  return { existingUrls, newFileIndices };
+}
 
-// ─── Keyboard shortcuts ───
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+async function uploadBotEventImage(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `bot-events/${fileName}`;
+  const { error } = await sb.storage.from('feed-images').upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw new Error('이미지 업로드 실패: ' + error.message);
+  const { data: urlData } = sb.storage.from('feed-images').getPublicUrl(path);
+  return urlData.publicUrl;
+}
+
+async function saveBotEventEdit(id) {
+  const ev = botFeedData.find(e => e.id === id);
+  if (!ev) return;
+
+  const updates = {};
+  const title = document.getElementById('beTitle').value.trim();
+  const category = document.getElementById('beCategory').value;
+  const region = document.getElementById('beRegion').value;
+  const venue = document.getElementById('beVenue').value.trim();
+  const desc = document.getElementById('beDesc').value.trim();
+  const startDate = document.getElementById('beStartDate').value;
+  const endDate = document.getElementById('beEndDate').value;
+  const time = document.getElementById('beTime').value.trim();
+  const price = document.getElementById('bePrice').value.trim();
+  const booking = document.getElementById('beBooking').value.trim();
+  const tagsStr = document.getElementById('beTags').value.trim();
+  const isFree = document.getElementById('beIsFree').checked;
+  const isHighlight = document.getElementById('beHighlight').checked;
+
+  // Handle multi-image upload
+  const { existingUrls, newFileIndices } = collectBotEventImageState();
+  const finalImages = [...existingUrls];
+
+  if (newFileIndices.length > 0) {
+    try {
+      showLoading(`이미지 업로드 중... (0/${newFileIndices.length})`);
+      for (let i = 0; i < newFileIndices.length; i++) {
+        showLoading(`이미지 업로드 중... (${i + 1}/${newFileIndices.length})`);
+        const url = await uploadBotEventImage(beNewFiles[newFileIndices[i]]);
+        finalImages.push(url);
+      }
+    } catch (e) {
+      hideLoading();
+      toast(e.message, 'error');
+      return;
+    } finally {
+      hideLoading();
+    }
   }
-});
+
+  const oldImages = ev.images && ev.images.length > 0 ? ev.images : (ev.image_url ? [ev.image_url] : []);
+  if (JSON.stringify(finalImages) !== JSON.stringify(oldImages)) {
+    updates.images = finalImages;
+    updates.image_url = finalImages.length > 0 ? finalImages[0] : null;
+  }
+
+  if (title && title !== ev.title) updates.title = title;
+  if (category !== ev.category) updates.category = category;
+  if (region !== ev.region) updates.region = region;
+  if (venue !== (ev.venue_name || '')) updates.venue_name = venue || null;
+  if (desc !== (ev.description || '')) updates.description = desc || null;
+  if (startDate !== (ev.start_date || '')) updates.start_date = startDate || null;
+  if (endDate !== (ev.end_date || '')) updates.end_date = endDate || null;
+  if (time !== (ev.start_time || '')) updates.start_time = time || null;
+  if (price !== (ev.price_info || '')) updates.price_info = price || null;
+  if (booking !== (ev.booking_url || '')) updates.booking_url = booking || null;
+  if (isFree !== ev.is_free) updates.is_free = isFree;
+  if (isHighlight !== !!ev.is_highlight) updates.is_highlight = isHighlight;
+
+  const newTags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const oldTags = (ev.tags || []).join(',');
+  if (newTags.join(',') !== oldTags) updates.tags = newTags;
+
+  if (Object.keys(updates).length === 0) { toast('변경 없음', 'info'); return; }
+
+  updates.updated_at = new Date().toISOString();
+  const { error } = await sb.from('feed_events').update(updates).eq('id', id);
+  if (error) { toast('수정 실패: ' + error.message, 'error'); return; }
+
+  toast('수정 완료', 'success');
+  document.getElementById('botEventModal').classList.remove('show');
+  loadBotFeed();
+}
 
 // ─── Init ───
 checkSession();
